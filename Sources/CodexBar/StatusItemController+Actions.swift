@@ -35,6 +35,15 @@ extension StatusItemController: StatusItemMenuPersistentActionDelegate {
         }
     }
 
+    @objc func syncMyCCusageNow() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.store.syncMyCCusageNow()
+            self.invalidateMenus()
+            self.refreshOpenMenusIfNeeded()
+        }
+    }
+
     @objc func installUpdate() {
         self.updater.checkForUpdates(nil)
     }

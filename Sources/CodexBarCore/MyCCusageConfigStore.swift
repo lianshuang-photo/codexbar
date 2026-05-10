@@ -19,6 +19,7 @@ public enum MyCCusageAgentType: String, CaseIterable, Codable, Equatable, Sendab
 }
 
 public struct MyCCusageConfig: Equatable, Sendable {
+    public var enabled: Bool
     public var apiKey: String
     public var endpoint: String
     public var schedule: String
@@ -31,6 +32,7 @@ public struct MyCCusageConfig: Equatable, Sendable {
     public var agentTypes: [MyCCusageAgentType]
 
     public init(
+        enabled: Bool = true,
         apiKey: String,
         endpoint: String,
         schedule: String = "0 */4 * * *",
@@ -42,6 +44,7 @@ public struct MyCCusageConfig: Equatable, Sendable {
         displayName: String? = nil,
         agentTypes: [MyCCusageAgentType] = [.claudeCode])
     {
+        self.enabled = enabled
         self.apiKey = apiKey
         self.endpoint = endpoint
         self.schedule = schedule
@@ -78,6 +81,7 @@ public final class MyCCusageConfigStore {
 
         self.preservedRaw = raw
         return MyCCusageConfig(
+            enabled: Self.boolValue(raw["enabled"]) ?? true,
             apiKey: apiKey,
             endpoint: endpoint,
             schedule: Self.nonEmptyString(raw["schedule"]) ?? "0 */4 * * *",
@@ -92,6 +96,7 @@ public final class MyCCusageConfigStore {
 
     public func save(_ config: MyCCusageConfig) throws {
         var raw = self.preservedRaw
+        raw["enabled"] = config.enabled
         raw["apiKey"] = config.apiKey
         raw["endpoint"] = config.endpoint
         raw["schedule"] = config.schedule
@@ -135,6 +140,19 @@ public final class MyCCusageConfigStore {
         if let int = value as? Int { return int }
         if let number = value as? NSNumber { return number.intValue }
         if let string = value as? String { return Int(string) }
+        return nil
+    }
+
+    private static func boolValue(_ value: Any?) -> Bool? {
+        if let bool = value as? Bool { return bool }
+        if let number = value as? NSNumber { return number.boolValue }
+        if let string = value as? String {
+            switch string.lowercased() {
+            case "true", "1", "yes": return true
+            case "false", "0", "no": return false
+            default: return nil
+            }
+        }
         return nil
     }
 }

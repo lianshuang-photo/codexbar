@@ -35,6 +35,7 @@ struct MenuDescriptor {
         case addAccount = "plus"
         case systemAccount = "person.crop.circle"
         case switchAccount = "key"
+        case sync = "arrow.triangle.2.circlepath"
         case openTerminal = "terminal"
         case loginToProvider = "arrow.right.square"
         case settings = "gearshape"
@@ -59,6 +60,7 @@ struct MenuDescriptor {
         case requestCodexSystemPromotion(UUID)
         case addProviderAccount(UsageProvider)
         case switchAccount(UsageProvider)
+        case syncMyCCusageNow
         case openTerminal(command: String)
         case loginToProvider(url: String)
         case settings
@@ -116,6 +118,9 @@ struct MenuDescriptor {
         }
 
         if includeContextualActions {
+            if let community = Self.myCCusageSection(store: store) {
+                sections.append(community)
+            }
             let actions = Self.actionsSection(
                 for: provider,
                 store: store,
@@ -430,6 +435,25 @@ struct MenuDescriptor {
         return Section(entries: entries)
     }
 
+    private static func myCCusageSection(store: UsageStore) -> Section? {
+        guard store.myCCusageEnabled else { return nil }
+        var entries: [Entry] = []
+        if let leaderboard = store.myCCusageLeaderboard {
+            entries.append(.text(leaderboard.menuLine, .secondary))
+        } else if let error = store.myCCusageLastError, !error.isEmpty {
+            entries.append(.text("Community: \(UsageFormatter.truncatedSingleLine(error, max: 96))", .secondary))
+        } else if !store.myCCusageCollectorStatus.isInstalled {
+            entries.append(.text("MyCCusage: collector not installed", .secondary))
+            entries.append(.action(
+                "Install MyCCusage Collector...",
+                .openTerminal(command: store.myCCusageCollectorStatus.installCommand)))
+        } else {
+            entries.append(.text("Community: no ranking data yet", .secondary))
+        }
+        entries.append(.action("Sync MyCCusage Now", .syncMyCCusageNow))
+        return Section(entries: entries)
+    }
+
     private static func metaSection(updateReady: Bool) -> Section {
         var entries: [Entry] = []
         if updateReady {
@@ -553,6 +577,7 @@ extension MenuDescriptor.MenuAction {
         case .addCodexAccount, .addProviderAccount: MenuDescriptor.MenuActionSystemImage.addAccount.rawValue
         case .requestCodexSystemPromotion:
             nil
+        case .syncMyCCusageNow: MenuDescriptor.MenuActionSystemImage.sync.rawValue
         case .switchAccount: MenuDescriptor.MenuActionSystemImage.switchAccount.rawValue
         case .openTerminal: MenuDescriptor.MenuActionSystemImage.openTerminal.rawValue
         case .loginToProvider: MenuDescriptor.MenuActionSystemImage.loginToProvider.rawValue

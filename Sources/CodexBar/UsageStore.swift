@@ -30,6 +30,14 @@ extension UsageStore {
         _ = self.probeLogs
         _ = self.historicalPaceRevision
         _ = self.providerStorageFootprints
+        _ = self.myCCusageConfig
+        _ = self.myCCusageEnabled
+        _ = self.myCCusageLeaderboard
+        _ = self.myCCusageLastSyncAt
+        _ = self.myCCusageNextSyncAt
+        _ = self.myCCusageLastError
+        _ = self.myCCusageSyncInFlight
+        _ = self.myCCusageCollectorStatus
         return 0
     }
 
@@ -148,6 +156,14 @@ final class UsageStore {
     var probeLogs: [UsageProvider: String] = [:]
     var historicalPaceRevision: Int = 0
     var providerStorageFootprints: [UsageProvider: ProviderStorageFootprint] = [:]
+    var myCCusageConfig: MyCCusageConfig?
+    var myCCusageEnabled = false
+    var myCCusageLeaderboard: MyCCusageLeaderboardSnapshot?
+    var myCCusageLastSyncAt: Date?
+    var myCCusageNextSyncAt: Date?
+    var myCCusageLastError: String?
+    var myCCusageSyncInFlight = false
+    var myCCusageCollectorStatus: MyCCusageSyncStatus = .missing
     @ObservationIgnored var lastCreditsSnapshot: CreditsSnapshot?
     @ObservationIgnored var lastCreditsSnapshotAccountKey: String?
     @ObservationIgnored var lastCreditsSource: CodexCreditsSource = .none
@@ -200,6 +216,7 @@ final class UsageStore {
     @ObservationIgnored var providerRuntimes: [UsageProvider: any ProviderRuntime] = [:]
     @ObservationIgnored private var timerTask: Task<Void, Never>?
     @ObservationIgnored private var tokenTimerTask: Task<Void, Never>?
+    @ObservationIgnored var myCCusageTimerTask: Task<Void, Never>?
     @ObservationIgnored private var tokenRefreshSequenceTask: Task<Void, Never>?
     @ObservationIgnored var storageRefreshTask: Task<Void, Never>?
     @ObservationIgnored var storageRefreshGeneration: UInt64 = 0
@@ -225,6 +242,9 @@ final class UsageStore {
     @ObservationIgnored private let tokenFetchTimeout: TimeInterval = 10 * 60
     @ObservationIgnored private let startupBehavior: StartupBehavior
     @ObservationIgnored let planUtilizationPersistenceCoordinator: PlanUtilizationHistoryPersistenceCoordinator
+    @ObservationIgnored let myCCusageConfigStore: MyCCusageConfigStore
+    @ObservationIgnored let myCCusageStatsClient: MyCCusageStatsClient
+    @ObservationIgnored let myCCusageSyncRunner: MyCCusageSyncRunner
 
     init(
         fetcher: UsageFetcher,
@@ -237,7 +257,10 @@ final class UsageStore {
         planUtilizationHistoryStore: PlanUtilizationHistoryStore = .defaultAppSupport(),
         sessionQuotaNotifier: any SessionQuotaNotifying = SessionQuotaNotifier(),
         startupBehavior: StartupBehavior = .automatic,
-        environmentBase: [String: String] = ProcessInfo.processInfo.environment)
+        environmentBase: [String: String] = ProcessInfo.processInfo.environment,
+        myCCusageConfigStore: MyCCusageConfigStore = MyCCusageConfigStore(),
+        myCCusageStatsClient: MyCCusageStatsClient = MyCCusageStatsClient(),
+        myCCusageSyncRunner: MyCCusageSyncRunner = MyCCusageSyncRunner())
     {
         self.codexFetcher = fetcher
         self.browserDetection = browserDetection
@@ -250,6 +273,9 @@ final class UsageStore {
         self.planUtilizationHistoryStore = planUtilizationHistoryStore
         self.sessionQuotaNotifier = sessionQuotaNotifier
         self.startupBehavior = startupBehavior.resolved(isRunningTests: Self.isRunningTestsProcess())
+        self.myCCusageConfigStore = myCCusageConfigStore
+        self.myCCusageStatsClient = myCCusageStatsClient
+        self.myCCusageSyncRunner = myCCusageSyncRunner
         self.planUtilizationPersistenceCoordinator = PlanUtilizationHistoryPersistenceCoordinator(
             store: planUtilizationHistoryStore)
         self.providerMetadata = registry.metadata
@@ -272,6 +298,7 @@ final class UsageStore {
         })
         self.planUtilizationHistory = planUtilizationHistoryStore.load()
         self.weeklyLimitResetDetectorStates = Self.loadWeeklyLimitResetDetectorStates(from: settings.userDefaults)
+        self.loadMyCCusageConfig()
         self.logStartupState()
         self.bindSettings()
         self.pathDebugInfo = PathDebugSnapshot(
@@ -297,6 +324,7 @@ final class UsageStore {
         Task { await self.refresh() }
         self.startTimer()
         self.startTokenTimer()
+        self.startMyCCusageIfNeeded()
     }
 
     private static func isRunningTestsProcess() -> Bool {
@@ -612,6 +640,7 @@ final class UsageStore {
     deinit {
         self.timerTask?.cancel()
         self.tokenTimerTask?.cancel()
+        self.myCCusageTimerTask?.cancel()
         self.tokenRefreshSequenceTask?.cancel()
         self.storageRefreshTask?.cancel()
         self.codexPlanHistoryBackfillTask?.cancel()
