@@ -55,7 +55,7 @@ struct MyCCusageCoreTests {
 
     @Test
     func `leaderboard snapshot ranks today's device against leader`() throws {
-        let payload = """
+        let payload = Data("""
         {
           "devices": [
             { "deviceId": "mine", "deviceName": "MacBookAir.lan", "displayName": "lianshuang" },
@@ -63,14 +63,18 @@ struct MyCCusageCoreTests {
             { "deviceId": "other", "deviceName": "Other" }
           ],
           "deviceData": [
-            { "date": "2026-05-10", "deviceId": "mine", "agentType": "codex", "totalCost": 20.00, "totalTokens": 35000000 },
-            { "date": "2026-05-10", "deviceId": "mine", "agentType": "opencode", "totalCost": 14.38, "totalTokens": 8500000 },
-            { "date": "2026-05-10", "deviceId": "leader", "agentType": "cherry-studio", "totalCost": 556.51, "totalTokens": 1000 },
-            { "date": "2026-05-10", "deviceId": "other", "agentType": "claude-code", "totalCost": 100.00, "totalTokens": 2000 },
+            { "date": "2026-05-10", "deviceId": "mine", "agentType": "codex",
+              "totalCost": 20.00, "totalTokens": 35000000 },
+            { "date": "2026-05-10", "deviceId": "mine", "agentType": "opencode",
+              "totalCost": 14.38, "totalTokens": 8500000 },
+            { "date": "2026-05-10", "deviceId": "leader", "agentType": "cherry-studio",
+              "totalCost": 556.51, "totalTokens": 1000 },
+            { "date": "2026-05-10", "deviceId": "other", "agentType": "claude-code",
+              "totalCost": 100.00, "totalTokens": 2000 },
             { "date": "2026-05-09", "deviceId": "mine", "agentType": "codex", "totalCost": 999.00, "totalTokens": 999 }
           ]
         }
-        """.data(using: .utf8)!
+        """.utf8)
 
         let snapshot = try MyCCusageLeaderboardSnapshot(
             statsData: payload,
@@ -88,7 +92,7 @@ struct MyCCusageCoreTests {
     }
 
     @Test
-    func `sync runner parses collector version and builds sync command`() throws {
+    func `sync runner parses collector version and builds sync command`() {
         #expect(MyCCusageSyncRunner.normalizedVersion("1.0.4") == "1.0.4")
         #expect(MyCCusageSyncRunner.normalizedVersion("ccusage-cherry-collector 1.2.3") == "1.2.3")
         #expect(MyCCusageSyncRunner.normalizedVersion("not a version") == nil)

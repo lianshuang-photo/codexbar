@@ -53,7 +53,9 @@ public struct MyCCusageSyncRunner: Sendable {
         return String(raw[swiftRange])
     }
 
-    public func installedStatus(environment: [String: String] = ProcessInfo.processInfo.environment) -> MyCCusageSyncStatus {
+    public func installedStatus(environment: [String: String] = ProcessInfo.processInfo
+        .environment) -> MyCCusageSyncStatus
+    {
         guard let binary = self.binaryURL ?? Self.findBinary(environment: environment) else {
             return .missing
         }

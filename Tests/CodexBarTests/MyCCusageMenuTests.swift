@@ -8,7 +8,7 @@ struct MyCCusageMenuTests {
     @Test
     func `menu includes community summary and manual sync action`() throws {
         let env = try Self.makeStore()
-        let payload = """
+        let payload = Data("""
         {
           "devices": [
             { "deviceId": "mine", "displayName": "lianshuang" },
@@ -19,7 +19,7 @@ struct MyCCusageMenuTests {
             { "date": "2026-05-10", "deviceId": "leader", "totalCost": 556.51, "totalTokens": 1 }
           ]
         }
-        """.data(using: .utf8)!
+        """.utf8)
         env.store.myCCusageConfig = MyCCusageConfig(
             apiKey: "secret",
             endpoint: "https://ccusage.cherry-ai.com/api/usage-sync",
@@ -37,7 +37,7 @@ struct MyCCusageMenuTests {
             account: AccountInfo(email: nil, plan: nil),
             updateReady: false)
 
-        let entries = descriptor.sections.flatMap { $0.entries }
+        let entries = descriptor.sections.flatMap(\.entries)
         #expect(entries.contains { entry in
             guard case let .text(text, _) = entry else { return false }
             return text == "Community: #2 today $34.38 / 43.5M - leader jd $556.51 - gap $522.13"

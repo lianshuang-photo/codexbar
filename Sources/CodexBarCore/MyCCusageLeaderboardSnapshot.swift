@@ -80,8 +80,8 @@ public struct MyCCusageLeaderboardSnapshot: Equatable, Sendable {
         if value >= 1_000_000 {
             return String(format: "%.1fM", double / 1_000_000)
         }
-        if value >= 1_000 {
-            return String(format: "%.1fK", double / 1_000)
+        if value >= 1000 {
+            return String(format: "%.1fK", double / 1000)
         }
         return "\(value)"
     }
