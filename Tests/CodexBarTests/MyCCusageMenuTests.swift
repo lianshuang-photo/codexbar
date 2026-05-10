@@ -81,6 +81,68 @@ struct MyCCusageMenuTests {
         })
     }
 
+    @Test
+    func `overview can suppress text section because community card owns MyCCusage display`() throws {
+        let env = try Self.makeStore()
+        env.store.myCCusageConfig = MyCCusageConfig(
+            apiKey: "secret",
+            endpoint: "https://ccusage.cherry-ai.com/api/usage-sync",
+            agentTypes: [.claudeCode, .cherryStudio, .opencode, .codex, .openclaw])
+        env.store.myCCusageEnabled = true
+
+        let descriptor = MenuDescriptor.build(
+            provider: nil,
+            store: env.store,
+            settings: env.settings,
+            account: AccountInfo(email: nil, plan: nil),
+            updateReady: false,
+            includeContextualActions: false,
+            includeMyCCusageSection: false)
+
+        let entries = descriptor.sections.flatMap(\.entries)
+        #expect(!entries.contains { entry in
+            guard case let .action(title, action) = entry else { return false }
+            return title == "Sync MyCCusage Now" && action == .syncMyCCusageNow
+        })
+    }
+
+    @Test
+    func `community card model shows chasing progress and five upload providers`() throws {
+        let payload = Data("""
+        {
+          "devices": [
+            { "deviceId": "mine", "displayName": "lianshuang" },
+            { "deviceId": "leader", "displayName": "jd" }
+          ],
+          "deviceData": [
+            { "date": "2026-05-10", "deviceId": "mine", "totalCost": 50.00, "totalTokens": 2000 },
+            { "date": "2026-05-10", "deviceId": "leader", "totalCost": 200.00, "totalTokens": 8000 }
+          ]
+        }
+        """.utf8)
+        let leaderboard = try MyCCusageLeaderboardSnapshot(
+            statsData: payload,
+            deviceId: "mine",
+            today: "2026-05-10")
+        let config = MyCCusageConfig(
+            apiKey: "secret",
+            endpoint: "https://ccusage.cherry-ai.com/api/usage-sync",
+            agentTypes: [.claudeCode, .cherryStudio, .opencode, .codex, .openclaw])
+
+        let model = try #require(MyCCusageCommunityCardModel(
+            config: config,
+            leaderboard: leaderboard,
+            lastError: nil,
+            isSyncing: false))
+
+        #expect(model.progressPercent == 25)
+        #expect(model.status == "#2 today $50.00 / 2.0K")
+        #expect(model.leaderText == "Leader jd $200.00")
+        #expect(model.gapText == "Gap $150.00")
+        #expect(model.uploadText == "Providers: Claude Code, Cherry Studio, OpenCode, Codex, OpenClaw")
+        #expect(model.actionText == "Sync Now")
+    }
+
     private static func makeStore() throws -> (settings: SettingsStore, store: UsageStore) {
         let suite = "MyCCusageMenuTests-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))

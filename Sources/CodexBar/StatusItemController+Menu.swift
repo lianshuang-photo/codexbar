@@ -191,7 +191,8 @@ extension StatusItemController {
             managedCodexAccountCoordinator: self.managedCodexAccountCoordinator,
             codexAccountPromotionCoordinator: self.codexAccountPromotionCoordinator,
             updateReady: self.updater.updateStatus.isUpdateReady,
-            includeContextualActions: !isOverviewSelected)
+            includeContextualActions: !isOverviewSelected,
+            includeMyCCusageSection: !isOverviewSelected)
         let menuWidth = self.menuCardWidth(for: enabledProviders, sections: descriptor.sections)
 
         let hasTokenSwitcher = menu.items.contains { $0.view is TokenAccountSwitcherView }
@@ -382,7 +383,8 @@ extension StatusItemController {
             managedCodexAccountCoordinator: self.managedCodexAccountCoordinator,
             codexAccountPromotionCoordinator: self.codexAccountPromotionCoordinator,
             updateReady: self.updater.updateStatus.isUpdateReady,
-            includeContextualActions: context.switcherSelection != .overview)
+            includeContextualActions: context.switcherSelection != .overview,
+            includeMyCCusageSection: context.switcherSelection != .overview)
 
         let menuContext = MenuCardContext(
             currentProvider: context.currentProvider,
@@ -613,6 +615,9 @@ extension StatusItemController {
     {
         self.store.refreshStorageFootprintsForOverview()
         if switcherSelection == .overview {
+            if self.addMyCCusageCommunityCardIfNeeded(to: menu, width: context.menuWidth) {
+                menu.addItem(.separator())
+            }
             let enabledProviders = self.store.enabledProvidersForDisplay()
             if self.addOverviewRows(
                 to: menu,
@@ -639,6 +644,28 @@ extension StatusItemController {
                 menu.addItem(.separator())
             }
         }
+    }
+
+    @discardableResult
+    private func addMyCCusageCommunityCardIfNeeded(to menu: NSMenu, width: CGFloat) -> Bool {
+        guard let model = MyCCusageCommunityCardModel(
+            config: self.store.myCCusageConfig,
+            leaderboard: self.store.myCCusageLeaderboard,
+            lastError: self.store.myCCusageLastError,
+            isSyncing: self.store.myCCusageSyncInFlight)
+        else { return false }
+
+        let item = self.makeMenuCardItem(
+            MyCCusageCommunityCardView(model: model, width: width),
+            id: "myCCusageCommunityCard",
+            width: width,
+            onClick: { [weak self] in
+                self?.syncMyCCusageNow()
+            })
+        item.target = self
+        item.action = #selector(self.syncMyCCusageNow)
+        menu.addItem(item)
+        return true
     }
 
     private func addActionableSections(_ sections: [MenuDescriptor.Section], to menu: NSMenu, width: CGFloat) {

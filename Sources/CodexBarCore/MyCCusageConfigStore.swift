@@ -111,7 +111,7 @@ public final class MyCCusageConfigStore {
         raw["deviceId"] = config.deviceId
         raw["deviceName"] = config.deviceName
         raw["displayName"] = config.displayName
-        raw["agentTypes"] = config.agentTypes.map(\.rawValue)
+        raw["agentTypes"] = Self.orderedAgentTypes(config.agentTypes).map(\.rawValue)
         raw.removeValue(forKey: "agentType")
 
         let directory = self.configURL.deletingLastPathComponent()
@@ -128,9 +128,11 @@ public final class MyCCusageConfigStore {
             if !parsed.isEmpty {
                 if Self.shouldUpgradeLegacyAllAgentSelection(parsed) {
                     parsed.append(.cherryStudio)
+                    parsed = Self.orderedAgentTypes(parsed)
                     return (parsed, true)
                 }
-                return (parsed, false)
+                let ordered = Self.orderedAgentTypes(parsed)
+                return (ordered, values != ordered.map(\.rawValue))
             }
         }
         if let value = raw["agentType"] as? String,
@@ -145,6 +147,11 @@ public final class MyCCusageConfigStore {
         let selected = Set(agents)
         return !selected.contains(.cherryStudio)
             && selected.isSuperset(of: Set([.claudeCode, .codex, .opencode, .openclaw]))
+    }
+
+    private static func orderedAgentTypes(_ agents: [MyCCusageAgentType]) -> [MyCCusageAgentType] {
+        let selected = Set(agents)
+        return MyCCusageAgentType.allCases.filter { selected.contains($0) }
     }
 
     private static func nonEmptyString(_ value: Any?) -> String? {

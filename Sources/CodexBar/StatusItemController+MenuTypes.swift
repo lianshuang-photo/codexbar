@@ -57,6 +57,113 @@ struct OverviewMenuCardRowView: View {
     }
 }
 
+struct MyCCusageCommunityCardModel: Equatable {
+    let title: String
+    let status: String
+    let progressPercent: Double
+    let leaderText: String?
+    let gapText: String?
+    let uploadText: String
+    let actionText: String
+    let isSyncing: Bool
+
+    init?(
+        config: MyCCusageConfig?,
+        leaderboard: MyCCusageLeaderboardSnapshot?,
+        lastError: String?,
+        isSyncing: Bool)
+    {
+        guard let config else { return nil }
+        self.title = "MyCCusage Community"
+        let orderedAgents = MyCCusageAgentType.allCases.filter { config.agentTypes.contains($0) }
+        self.uploadText = "Providers: " + orderedAgents.map(\.label).joined(separator: ", ")
+        self.actionText = isSyncing ? "Syncing..." : "Sync Now"
+        self.isSyncing = isSyncing
+
+        if let leaderboard {
+            self.status = "#\(leaderboard.rank) today " +
+                "\(MyCCusageLeaderboardSnapshot.usd(leaderboard.own.totalCost)) / " +
+                "\(MyCCusageLeaderboardSnapshot.tokens(leaderboard.own.totalTokens))"
+            self.leaderText = "Leader \(leaderboard.leader.displayName) " +
+                MyCCusageLeaderboardSnapshot.usd(leaderboard.leader.totalCost)
+            self.gapText = "Gap " + MyCCusageLeaderboardSnapshot.usd(leaderboard.gapToLeader)
+            self.progressPercent = Self.progressPercent(
+                own: leaderboard.own.totalCost,
+                leader: leaderboard.leader.totalCost)
+        } else if let lastError, !lastError.isEmpty {
+            self.status = "Community: " + UsageFormatter.truncatedSingleLine(lastError, max: 80)
+            self.leaderText = nil
+            self.gapText = nil
+            self.progressPercent = 0
+        } else {
+            self.status = "Community: no ranking data yet"
+            self.leaderText = nil
+            self.gapText = nil
+            self.progressPercent = 0
+        }
+    }
+
+    private static func progressPercent(own: Double, leader: Double) -> Double {
+        guard leader > 0 else { return 0 }
+        return min(100, max(0, own / leader * 100))
+    }
+}
+
+struct MyCCusageCommunityCardView: View {
+    let model: MyCCusageCommunityCardModel
+    let width: CGFloat
+    @Environment(\.menuItemHighlighted) private var isHighlighted
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(self.model.title)
+                    .font(.headline)
+                    .foregroundStyle(MenuHighlightStyle.primary(self.isHighlighted))
+                Spacer(minLength: 8)
+                Text(self.model.actionText)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
+            }
+
+            Text(self.model.status)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(MenuHighlightStyle.primary(self.isHighlighted))
+                .lineLimit(1)
+
+            UsageProgressBar(
+                percent: self.model.progressPercent,
+                tint: .accentColor,
+                accessibilityLabel: "MyCCusage community chasing progress",
+                pacePercent: 100,
+                paceOnTop: false)
+
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                if let leaderText = model.leaderText {
+                    Text(leaderText)
+                        .lineLimit(1)
+                }
+                if let gapText = model.gapText {
+                    Text(gapText)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            .font(.footnote)
+            .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
+
+            Text(self.model.uploadText)
+                .font(.footnote)
+                .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
+                .lineLimit(2)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .frame(width: self.width, alignment: .leading)
+        .opacity(self.model.isSyncing ? 0.75 : 1)
+    }
+}
+
 struct OpenAIWebMenuItems {
     let hasUsageBreakdown: Bool
     let hasCreditsHistory: Bool

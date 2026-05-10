@@ -61,16 +61,45 @@ struct MyCCusageCoreTests {
         let store = MyCCusageConfigStore(configURL: env.configURL)
         let config = try #require(try store.load())
 
-        #expect(config.agentTypes == [.claudeCode, .codex, .opencode, .openclaw, .cherryStudio])
+        #expect(config.agentTypes == [.claudeCode, .cherryStudio, .opencode, .codex, .openclaw])
 
         let data = try Data(contentsOf: env.configURL)
         let json = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
         #expect(json["agentTypes"] as? [String] == [
             "claude-code",
-            "codex",
-            "opencode",
-            "openclaw",
             "cherry-studio",
+            "opencode",
+            "codex",
+            "openclaw",
+        ])
+    }
+
+    @Test
+    func `config store normalizes Cherry Studio selection order`() throws {
+        let env = try TestEnv()
+        defer { env.cleanup() }
+
+        try """
+        {
+          "apiKey": "secret",
+          "endpoint": "https://ccusage.cherry-ai.com/api/usage-sync",
+          "agentTypes": ["claude-code", "codex", "opencode", "openclaw", "cherry-studio"]
+        }
+        """.write(to: env.configURL, atomically: true, encoding: .utf8)
+
+        let store = MyCCusageConfigStore(configURL: env.configURL)
+        let config = try #require(try store.load())
+
+        #expect(config.agentTypes == [.claudeCode, .cherryStudio, .opencode, .codex, .openclaw])
+
+        let data = try Data(contentsOf: env.configURL)
+        let json = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(json["agentTypes"] as? [String] == [
+            "claude-code",
+            "cherry-studio",
+            "opencode",
+            "codex",
+            "openclaw",
         ])
     }
 
