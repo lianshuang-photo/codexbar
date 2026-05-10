@@ -11,6 +11,11 @@ extension ProvidersPane {
         self.providerSubtitle(provider)
     }
 
+    func _test_visibleProviders() -> [UsageProvider] {
+        let visible = Set(Self.visibleProviders)
+        return self.settings.orderedProviders().filter { visible.contains($0) }
+    }
+
     func _test_menuBarMetricPicker(for provider: UsageProvider) -> ProviderSettingsPickerDescriptor? {
         self.menuBarMetricPicker(for: provider)
     }
@@ -132,7 +137,7 @@ enum ProvidersPaneTestHarness {
         _ = pane._test_providerSubtitle(.claude)
         _ = pane._test_providerSubtitle(.cursor)
         _ = pane._test_providerSubtitle(.opencode)
-        _ = pane._test_providerSubtitle(.opencodego)
+        _ = pane._test_providerSubtitle(.cherryStudio)
         _ = pane._test_providerSubtitle(.zai)
         _ = pane._test_providerSubtitle(.synthetic)
         _ = pane._test_providerSubtitle(.minimax)

@@ -15,6 +15,21 @@ struct ProvidersPaneCoverageTests {
     }
 
     @Test
+    func `providers pane shows only MVP providers including Cherry Studio`() {
+        let settings = Self.makeSettingsStore(suite: "ProvidersPaneCoverageTests-mvp-providers")
+        let store = Self.makeUsageStore(settings: settings)
+        let pane = ProvidersPane(settings: settings, store: store)
+
+        #expect(pane._test_visibleProviders() == [
+            .codex,
+            .claude,
+            .cursor,
+            .opencode,
+            .cherryStudio,
+        ])
+    }
+
+    @Test
     func `open router menu bar metric picker shows only automatic and primary`() {
         let settings = Self.makeSettingsStore(suite: "ProvidersPaneCoverageTests-openrouter-picker")
         let store = Self.makeUsageStore(settings: settings)

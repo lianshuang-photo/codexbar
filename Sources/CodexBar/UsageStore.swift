@@ -1004,9 +1004,10 @@ extension UsageStore {
                         configToken: nil,
                         hasEnvToken: deepSeekHasEnvToken,
                         hasTokenAccount: deepSeekHasTokenAccount)
-                case .gemini, .antigravity, .opencode, .opencodego, .factory, .copilot, .vertexai, .kilo, .kiro, .kimi,
-                     .kimik2, .jetbrains, .perplexity, .mimo, .doubao, .abacus, .mistral, .codebuff, .crof, .windsurf,
-                     .venice, .manus, .commandcode, .stepfun:
+                case .gemini, .antigravity, .opencode, .cherryStudio, .opencodego, .factory, .copilot, .vertexai, .kilo,
+                     .kiro, .kimi, .kimik2, .jetbrains, .perplexity, .mimo, .doubao, .abacus, .mistral, .codebuff,
+                     .crof,
+                     .windsurf, .venice, .manus, .commandcode, .stepfun:
                     return unimplementedDebugLogMessages[provider] ?? "Debug log not yet implemented"
                 }
             }

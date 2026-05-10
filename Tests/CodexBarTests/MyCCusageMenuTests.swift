@@ -141,6 +141,25 @@ struct MyCCusageMenuTests {
         #expect(model.gapText == "Gap $150.00")
         #expect(model.uploadText == "Providers: Claude Code, Cherry Studio, OpenCode, Codex, OpenClaw")
         #expect(model.actionText == "Sync Now")
+        #expect(model.isActionEnabled)
+    }
+
+    @Test
+    func `community card model disables sync action while syncing`() throws {
+        let config = MyCCusageConfig(
+            apiKey: "secret",
+            endpoint: "https://ccusage.cherry-ai.com/api/usage-sync",
+            deviceId: "mine",
+            agentTypes: [.claudeCode, .cherryStudio])
+
+        let model = try #require(MyCCusageCommunityCardModel(
+            config: config,
+            leaderboard: nil,
+            lastError: nil,
+            isSyncing: true))
+
+        #expect(model.actionText == "Syncing...")
+        #expect(!model.isActionEnabled)
     }
 
     private static func makeStore() throws -> (settings: SettingsStore, store: UsageStore) {

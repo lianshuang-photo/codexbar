@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 extension EnvironmentValues {
@@ -5,7 +6,7 @@ extension EnvironmentValues {
 }
 
 enum MenuHighlightStyle {
-    static let selectionText = Color(nsColor: .selectedMenuItemTextColor)
+    static let selectionText = Color(nsColor: .controlTextColor)
     static let normalPrimaryText = Color(nsColor: .controlTextColor)
     static let normalSecondaryText = Color(nsColor: .secondaryLabelColor)
 
@@ -18,18 +19,52 @@ enum MenuHighlightStyle {
     }
 
     static func error(_ highlighted: Bool) -> Color {
-        highlighted ? self.selectionText : Color(nsColor: .systemRed)
+        Color(nsColor: .systemRed)
     }
 
     static func progressTrack(_ highlighted: Bool) -> Color {
-        highlighted ? self.selectionText.opacity(0.22) : Color(nsColor: .tertiaryLabelColor).opacity(0.22)
+        Color(nsColor: .tertiaryLabelColor).opacity(highlighted ? 0.32 : 0.22)
     }
 
     static func progressTint(_ highlighted: Bool, fallback: Color) -> Color {
-        highlighted ? self.selectionText : fallback
+        fallback
     }
 
     static func selectionBackground(_ highlighted: Bool) -> Color {
-        highlighted ? Color(nsColor: .selectedContentBackgroundColor) : .clear
+        highlighted ? CodexBarOrangeTheme.selectionBackgroundColor : .clear
     }
+}
+
+enum CodexBarOrangeTheme {
+    static let selectionBackgroundNSColor = NSColor(
+        calibratedRed: 1.00,
+        green: 0.88,
+        blue: 0.68,
+        alpha: 1)
+    static let selectionHoverNSColor = NSColor(
+        calibratedRed: 1.00,
+        green: 0.92,
+        blue: 0.80,
+        alpha: 1)
+    static let selectionTextNSColor = NSColor(
+        calibratedRed: 0.30,
+        green: 0.16,
+        blue: 0.05,
+        alpha: 1)
+    static let actionNSColor = NSColor(
+        calibratedRed: 0.79,
+        green: 0.28,
+        blue: 0.05,
+        alpha: 1)
+    static let actionSecondaryNSColor = NSColor(
+        calibratedRed: 0.91,
+        green: 0.43,
+        blue: 0.10,
+        alpha: 1)
+
+    static let selectionBackgroundColor = Color(nsColor: selectionBackgroundNSColor)
+    static let selectionHoverColor = Color(nsColor: selectionHoverNSColor)
+    static let selectionTextColor = Color(nsColor: selectionTextNSColor)
+    static let actionColor = Color(nsColor: actionNSColor)
+    static let actionSecondaryColor = Color(nsColor: actionSecondaryNSColor)
 }

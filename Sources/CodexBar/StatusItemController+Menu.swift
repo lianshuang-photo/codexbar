@@ -659,11 +659,14 @@ extension StatusItemController {
             MyCCusageCommunityCardView(model: model, width: width),
             id: "myCCusageCommunityCard",
             width: width,
-            onClick: { [weak self] in
+            onClick: model.isActionEnabled ? { [weak self] in
                 self?.syncMyCCusageNow()
-            })
-        item.target = self
-        item.action = #selector(self.syncMyCCusageNow)
+            } : nil)
+        item.isEnabled = true
+        if model.isActionEnabled {
+            item.target = self
+            item.action = #selector(self.syncMyCCusageNow)
+        }
         menu.addItem(item)
         return true
     }

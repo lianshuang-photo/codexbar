@@ -65,6 +65,7 @@ struct MyCCusageCommunityCardModel: Equatable {
     let gapText: String?
     let uploadText: String
     let actionText: String
+    let isActionEnabled: Bool
     let isSyncing: Bool
 
     init?(
@@ -78,6 +79,7 @@ struct MyCCusageCommunityCardModel: Equatable {
         let orderedAgents = MyCCusageAgentType.allCases.filter { config.agentTypes.contains($0) }
         self.uploadText = "Providers: " + orderedAgents.map(\.label).joined(separator: ", ")
         self.actionText = isSyncing ? "Syncing..." : "Sync Now"
+        self.isActionEnabled = !isSyncing
         self.isSyncing = isSyncing
 
         if let leaderboard {
@@ -123,7 +125,12 @@ struct MyCCusageCommunityCardView: View {
                 Spacer(minLength: 8)
                 Text(self.model.actionText)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(CodexBarOrangeTheme.actionColor.opacity(self.model.isActionEnabled ? 1 : 0.72)))
             }
 
             Text(self.model.status)
@@ -133,7 +140,7 @@ struct MyCCusageCommunityCardView: View {
 
             UsageProgressBar(
                 percent: self.model.progressPercent,
-                tint: .accentColor,
+                tint: CodexBarOrangeTheme.actionSecondaryColor,
                 accessibilityLabel: "MyCCusage community chasing progress",
                 pacePercent: 100,
                 paceOnTop: false)
@@ -160,7 +167,6 @@ struct MyCCusageCommunityCardView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .frame(width: self.width, alignment: .leading)
-        .opacity(self.model.isSyncing ? 0.75 : 1)
     }
 }
 

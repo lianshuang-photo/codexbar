@@ -26,9 +26,9 @@ final class ProviderSwitcherView: NSView {
     private var weeklyIndicators: [ObjectIdentifier: WeeklyIndicator] = [:]
     private var hoverTrackingArea: NSTrackingArea?
     private var segmentWidths: [CGFloat] = []
-    private let selectedBackground = NSColor.controlAccentColor.cgColor
+    private let selectedBackground = CodexBarOrangeTheme.selectionBackgroundNSColor.cgColor
     private let unselectedBackground = NSColor.clear.cgColor
-    private let selectedTextColor = NSColor.white
+    private let selectedTextColor = CodexBarOrangeTheme.selectionTextNSColor
     private let unselectedTextColor = NSColor.secondaryLabelColor
     private let stackedIcons: Bool
     private let rowCount: Int
@@ -617,9 +617,9 @@ final class ProviderSwitcherView: NSView {
 
     private func hoverPlateColor() -> CGColor {
         if self.isLightMode() {
-            return NSColor.black.withAlphaComponent(0.095).cgColor
+            return CodexBarOrangeTheme.selectionHoverNSColor.cgColor
         }
-        return NSColor.labelColor.withAlphaComponent(0.06).cgColor
+        return CodexBarOrangeTheme.actionSecondaryNSColor.withAlphaComponent(0.24).cgColor
     }
 
     /// Cache for button width measurements to avoid repeated layout passes.
@@ -865,9 +865,9 @@ final class TokenAccountSwitcherView: NSView {
     private var buttons: [NSButton] = []
     private let rowSpacing: CGFloat = 4
     private let rowHeight: CGFloat = 26
-    private let selectedBackground = NSColor.controlAccentColor.cgColor
+    private let selectedBackground = CodexBarOrangeTheme.selectionBackgroundNSColor.cgColor
     private let unselectedBackground = NSColor.clear.cgColor
-    private let selectedTextColor = NSColor.white
+    private let selectedTextColor = CodexBarOrangeTheme.selectionTextNSColor
     private let unselectedTextColor = NSColor.secondaryLabelColor
 
     init(
@@ -989,9 +989,9 @@ final class CodexAccountSwitcherView: NSView {
     private var buttons: [NSButton] = []
     private let rowSpacing: CGFloat = 4
     private let rowHeight: CGFloat = 26
-    private let selectedBackground = NSColor.controlAccentColor.cgColor
+    private let selectedBackground = CodexBarOrangeTheme.selectionBackgroundNSColor.cgColor
     private let unselectedBackground = NSColor.clear.cgColor
-    private let selectedTextColor = NSColor.white
+    private let selectedTextColor = CodexBarOrangeTheme.selectionTextNSColor
     private let unselectedTextColor = NSColor.secondaryLabelColor
     private let buttonFont = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
     private let buttonHorizontalPadding: CGFloat = 14

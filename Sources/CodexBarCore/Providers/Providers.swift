@@ -7,6 +7,7 @@ public enum UsageProvider: String, CaseIterable, Sendable, Codable {
     case claude
     case cursor
     case opencode
+    case cherryStudio = "cherry-studio"
     case opencodego
     case alibaba
     case factory
@@ -54,6 +55,7 @@ public enum IconStyle: Sendable, CaseIterable {
     case antigravity
     case cursor
     case opencode
+    case cherryStudio
     case opencodego
     case alibaba
     case factory

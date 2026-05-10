@@ -57,6 +57,7 @@ public enum ProviderDescriptorRegistry {
         .claude: ClaudeProviderDescriptor.descriptor,
         .cursor: CursorProviderDescriptor.descriptor,
         .opencode: OpenCodeProviderDescriptor.descriptor,
+        .cherryStudio: CherryStudioProviderDescriptor.descriptor,
         .opencodego: OpenCodeGoProviderDescriptor.descriptor,
         .alibaba: AlibabaCodingPlanProviderDescriptor.descriptor,
         .factory: FactoryProviderDescriptor.descriptor,

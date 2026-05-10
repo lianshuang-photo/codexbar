@@ -18,8 +18,17 @@ struct ProvidersPane: View {
     @State private var isAuthenticatingLiveCodexAccount = false
     @State private var selectedProvider: UsageProvider?
 
+    static let visibleProviders: [UsageProvider] = [
+        .codex,
+        .claude,
+        .cursor,
+        .opencode,
+        .cherryStudio,
+    ]
+
     private var providers: [UsageProvider] {
-        self.settings.orderedProviders()
+        let visible = Set(Self.visibleProviders)
+        return self.settings.orderedProviders().filter { visible.contains($0) }
     }
 
     init(
