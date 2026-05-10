@@ -79,8 +79,9 @@ public final class MyCCusageConfigStore {
               let endpoint = Self.nonEmptyString(raw["endpoint"])
         else { return nil }
 
+        let agentSelection = Self.agentTypes(from: raw)
         self.preservedRaw = raw
-        return MyCCusageConfig(
+        let config = MyCCusageConfig(
             enabled: Self.boolValue(raw["enabled"]) ?? true,
             apiKey: apiKey,
             endpoint: endpoint,
@@ -91,7 +92,11 @@ public final class MyCCusageConfigStore {
             deviceId: Self.nonEmptyString(raw["deviceId"]),
             deviceName: Self.nonEmptyString(raw["deviceName"]),
             displayName: Self.nonEmptyString(raw["displayName"]),
-            agentTypes: Self.agentTypes(from: raw))
+            agentTypes: agentSelection.types)
+        if agentSelection.shouldPersist {
+            try self.save(config)
+        }
+        return config
     }
 
     public func save(_ config: MyCCusageConfig) throws {
@@ -117,17 +122,29 @@ public final class MyCCusageConfigStore {
         self.preservedRaw = raw
     }
 
-    private static func agentTypes(from raw: [String: Any]) -> [MyCCusageAgentType] {
+    private static func agentTypes(from raw: [String: Any]) -> (types: [MyCCusageAgentType], shouldPersist: Bool) {
         if let values = raw["agentTypes"] as? [String] {
-            let parsed = values.compactMap(MyCCusageAgentType.init(rawValue:))
-            if !parsed.isEmpty { return parsed }
+            var parsed = values.compactMap(MyCCusageAgentType.init(rawValue:))
+            if !parsed.isEmpty {
+                if Self.shouldUpgradeLegacyAllAgentSelection(parsed) {
+                    parsed.append(.cherryStudio)
+                    return (parsed, true)
+                }
+                return (parsed, false)
+            }
         }
         if let value = raw["agentType"] as? String,
            let agent = MyCCusageAgentType(rawValue: value)
         {
-            return [agent]
+            return ([agent], false)
         }
-        return [.claudeCode]
+        return ([.claudeCode], false)
+    }
+
+    private static func shouldUpgradeLegacyAllAgentSelection(_ agents: [MyCCusageAgentType]) -> Bool {
+        let selected = Set(agents)
+        return !selected.contains(.cherryStudio)
+            && selected.isSuperset(of: Set([.claudeCode, .codex, .opencode, .openclaw]))
     }
 
     private static func nonEmptyString(_ value: Any?) -> String? {

@@ -79,7 +79,8 @@ struct MenuDescriptor {
         managedCodexAccountCoordinator: ManagedCodexAccountCoordinator? = nil,
         codexAccountPromotionCoordinator: CodexAccountPromotionCoordinator? = nil,
         updateReady: Bool,
-        includeContextualActions: Bool = true) -> MenuDescriptor
+        includeContextualActions: Bool = true,
+        includeMyCCusageSection: Bool = true) -> MenuDescriptor
     {
         var sections: [Section] = []
 
@@ -117,10 +118,11 @@ struct MenuDescriptor {
             }
         }
 
+        if includeMyCCusageSection, let community = Self.myCCusageSection(store: store) {
+            sections.append(community)
+        }
+
         if includeContextualActions {
-            if let community = Self.myCCusageSection(store: store) {
-                sections.append(community)
-            }
             let actions = Self.actionsSection(
                 for: provider,
                 store: store,
@@ -436,22 +438,50 @@ struct MenuDescriptor {
     }
 
     private static func myCCusageSection(store: UsageStore) -> Section? {
-        guard store.myCCusageEnabled else { return nil }
         var entries: [Entry] = []
-        if let leaderboard = store.myCCusageLeaderboard {
-            entries.append(.text(leaderboard.menuLine, .secondary))
-        } else if let error = store.myCCusageLastError, !error.isEmpty {
-            entries.append(.text("Community: \(UsageFormatter.truncatedSingleLine(error, max: 96))", .secondary))
-        } else if !store.myCCusageCollectorStatus.isInstalled {
-            entries.append(.text("MyCCusage: collector not installed", .secondary))
+        if let config = store.myCCusageConfig,
+           let uploadsLine = Self.myCCusageUploadsLine(config: config)
+        {
+            if let leaderboard = store.myCCusageLeaderboard {
+                entries.append(.text(leaderboard.menuLine, .secondary))
+            } else if let error = store.myCCusageLastError, !error.isEmpty {
+                entries.append(.text("Community: \(UsageFormatter.truncatedSingleLine(error, max: 96))", .secondary))
+            } else if !store.myCCusageCollectorStatus.isInstalled {
+                entries.append(.text("MyCCusage: collector not installed", .secondary))
+                entries.append(.action(
+                    "Install MyCCusage Collector...",
+                    .openTerminal(command: store.myCCusageCollectorStatus.installCommand)))
+            } else if store.myCCusageEnabled {
+                entries.append(.text("Community: no ranking data yet", .secondary))
+            } else {
+                entries.append(.text("MyCCusage: disabled", .secondary))
+            }
+            entries.append(.text(uploadsLine, .secondary))
+            entries.append(.action("Sync MyCCusage Now", .syncMyCCusageNow))
+            return Section(entries: entries)
+        }
+
+        entries.append(.text("MyCCusage: not configured", .secondary))
+        if store.myCCusageCollectorStatus.isInstalled {
+            entries.append(.action(
+                "Configure MyCCusage Collector...",
+                .openTerminal(command: "ccusage-cherry-collector config")))
+        } else {
             entries.append(.action(
                 "Install MyCCusage Collector...",
-                .openTerminal(command: store.myCCusageCollectorStatus.installCommand)))
-        } else {
-            entries.append(.text("Community: no ranking data yet", .secondary))
+                .openTerminal(
+                    command: "\(store.myCCusageCollectorStatus.installCommand) && ccusage-cherry-collector config")))
         }
-        entries.append(.action("Sync MyCCusage Now", .syncMyCCusageNow))
         return Section(entries: entries)
+    }
+
+    private static func myCCusageUploadsLine(config: MyCCusageConfig) -> String? {
+        let labels = config.agentTypes.map(\.label)
+        guard !labels.isEmpty else { return nil }
+        if config.agentTypes.contains(.cherryStudio) {
+            return "Uploads: \(labels.joined(separator: ", "))"
+        }
+        return "Uploads: \(labels.joined(separator: ", ")) - Cherry Studio off"
     }
 
     private static func metaSection(updateReady: Bool) -> Section {

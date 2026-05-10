@@ -46,6 +46,35 @@ struct MyCCusageCoreTests {
     }
 
     @Test
+    func `config store upgrades legacy all-agent selection to include Cherry Studio`() throws {
+        let env = try TestEnv()
+        defer { env.cleanup() }
+
+        try """
+        {
+          "apiKey": "secret",
+          "endpoint": "https://ccusage.cherry-ai.com/api/usage-sync",
+          "agentTypes": ["claude-code", "codex", "opencode", "openclaw"]
+        }
+        """.write(to: env.configURL, atomically: true, encoding: .utf8)
+
+        let store = MyCCusageConfigStore(configURL: env.configURL)
+        let config = try #require(try store.load())
+
+        #expect(config.agentTypes == [.claudeCode, .codex, .opencode, .openclaw, .cherryStudio])
+
+        let data = try Data(contentsOf: env.configURL)
+        let json = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(json["agentTypes"] as? [String] == [
+            "claude-code",
+            "codex",
+            "opencode",
+            "openclaw",
+            "cherry-studio",
+        ])
+    }
+
+    @Test
     func `stats endpoint is derived from sync endpoint`() throws {
         let sync = try #require(URL(string: "https://ccusage.cherry-ai.com/api/usage-sync"))
         let stats = try #require(MyCCusageStatsClient.statsEndpointURL(fromSyncEndpoint: sync))

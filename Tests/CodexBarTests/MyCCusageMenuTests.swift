@@ -48,6 +48,39 @@ struct MyCCusageMenuTests {
         })
     }
 
+    @Test
+    func `overview descriptor includes MyCCusage sync when contextual actions are hidden`() throws {
+        let env = try Self.makeStore()
+        env.store.myCCusageConfig = MyCCusageConfig(
+            apiKey: "secret",
+            endpoint: "https://ccusage.cherry-ai.com/api/usage-sync",
+            deviceId: "mine",
+            agentTypes: [.claudeCode, .cherryStudio, .opencode])
+        env.store.myCCusageEnabled = true
+
+        let descriptor = MenuDescriptor.build(
+            provider: nil,
+            store: env.store,
+            settings: env.settings,
+            account: AccountInfo(email: nil, plan: nil),
+            updateReady: false,
+            includeContextualActions: false)
+
+        let entries = descriptor.sections.flatMap(\.entries)
+        #expect(entries.contains { entry in
+            guard case let .text(text, _) = entry else { return false }
+            return text == "Community: no ranking data yet"
+        })
+        #expect(entries.contains { entry in
+            guard case let .text(text, _) = entry else { return false }
+            return text == "Uploads: Claude Code, Cherry Studio, OpenCode"
+        })
+        #expect(entries.contains { entry in
+            guard case let .action(title, action) = entry else { return false }
+            return title == "Sync MyCCusage Now" && action == .syncMyCCusageNow
+        })
+    }
+
     private static func makeStore() throws -> (settings: SettingsStore, store: UsageStore) {
         let suite = "MyCCusageMenuTests-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
