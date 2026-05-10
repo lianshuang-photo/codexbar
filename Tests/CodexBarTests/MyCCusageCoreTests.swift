@@ -99,6 +99,36 @@ struct MyCCusageCoreTests {
         #expect(command.arguments == ["sync"])
     }
 
+    @Test
+    func `sync runner invokes collector binary without test command`() throws {
+        let env = try TestEnv()
+        defer { env.cleanup() }
+
+        let binaryURL = env.root.appendingPathComponent("ccusage-cherry-collector")
+        try """
+        #!/bin/sh
+        if [ "$1" = "--version" ]; then
+          echo "ccusage-cherry-collector 1.0.4"
+          exit 0
+        fi
+        if [ "$1" = "sync" ]; then
+          echo "synced"
+          exit 0
+        fi
+        echo "unexpected $1"
+        exit 2
+        """.write(to: binaryURL, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: binaryURL.path)
+
+        let runner = MyCCusageSyncRunner(binaryURL: binaryURL)
+        let status = runner.installedStatus(environment: [:])
+        let result = runner.sync(environment: [:])
+
+        #expect(status.binaryURL == binaryURL)
+        #expect(status.version == "1.0.4")
+        #expect(result == MyCCusageSyncResult(exitCode: 0, output: "synced"))
+    }
+
     private struct TestEnv {
         let root: URL
         let configURL: URL
