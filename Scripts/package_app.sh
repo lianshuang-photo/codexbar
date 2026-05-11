@@ -413,13 +413,9 @@ PLIST
   install_binary "CodexBarWidget" "$WIDGET_APP/Contents/MacOS/CodexBarWidget"
   generate_widget_appintents_metadata "$WIDGET_APP/Contents/Resources"
 fi
-# Embed Sparkle.framework
-if [[ -d ".build/$CONF/Sparkle.framework" ]]; then
-  cp -R ".build/$CONF/Sparkle.framework" "$APP/Contents/Frameworks/"
-  chmod -R a+rX "$APP/Contents/Frameworks/Sparkle.framework"
-  install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/CodexBar"
-  # Re-sign Sparkle and all nested components with Developer ID + timestamp
-  SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+# Codesign args must be defined before any signing happens, regardless of
+# whether Sparkle is embedded below. With set -u, leaving CODESIGN_ARGS unset
+# crashes the later helper/widget/app codesign calls if Sparkle isn't found.
 if [[ "$SIGNING_MODE" == "adhoc" ]]; then
   CODESIGN_ID="-"
   CODESIGN_ARGS=(--force --sign "$CODESIGN_ID")
@@ -431,6 +427,24 @@ else
   CODESIGN_ARGS=(--force --timestamp --options runtime --sign "$CODESIGN_ID")
 fi
 function resign() { codesign "${CODESIGN_ARGS[@]}" "$1"; }
+
+# Embed Sparkle.framework. SwiftPM emits it next to the binary, which lives in
+# an arch-specific dir whenever `swift build --arch` was used (i.e. always in
+# our release path).
+SPARKLE_SRC=""
+for candidate in \
+  ".build/$CONF/Sparkle.framework" \
+  ".build/${ARCH_LIST[0]}-apple-macosx/$CONF/Sparkle.framework"; do
+  if [[ -d "$candidate" ]]; then
+    SPARKLE_SRC="$candidate"
+    break
+  fi
+done
+if [[ -n "$SPARKLE_SRC" ]]; then
+  cp -R "$SPARKLE_SRC" "$APP/Contents/Frameworks/"
+  chmod -R a+rX "$APP/Contents/Frameworks/Sparkle.framework"
+  install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/CodexBar"
+  SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
   # Sign innermost binaries first, then the framework root to seal resources
   resign "$SPARKLE"
   resign "$SPARKLE/Versions/B/Sparkle"

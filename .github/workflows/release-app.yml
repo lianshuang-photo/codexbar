@@ -81,5 +81,6 @@ jobs:
           gh release create "$TAG" \
             "${{ steps.zip.outputs.name }}" \
             "${{ steps.zip.outputs.name }}.sha256" \
+            --target "$GITHUB_SHA" \
             --title "CodexBar ${{ steps.ver.outputs.marketing }} (unsigned, manual build)" \
             --notes "Ad-hoc signed build from commit ${GITHUB_SHA::7}. First launch on macOS: right-click the app → Open → confirm. Or run: xattr -dr com.apple.quarantine /Applications/CodexBar.app"
