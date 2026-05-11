@@ -115,22 +115,17 @@ struct MyCCusageCommunityCardView: View {
     let model: MyCCusageCommunityCardModel
     let width: CGFloat
     @Environment(\.menuItemHighlighted) private var isHighlighted
+    @State private var isActionHovered = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 Text(self.model.title)
                     .font(.headline)
                     .foregroundStyle(MenuHighlightStyle.primary(self.isHighlighted))
+                    .lineLimit(1)
                 Spacer(minLength: 8)
-                Text(self.model.actionText)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule()
-                            .fill(CodexBarOrangeTheme.actionColor.opacity(self.model.isActionEnabled ? 1 : 0.72)))
+                self.actionButton
             }
 
             Text(self.model.status)
@@ -158,15 +153,33 @@ struct MyCCusageCommunityCardView: View {
             }
             .font(.footnote)
             .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
-
-            Text(self.model.uploadText)
-                .font(.footnote)
-                .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
-                .lineLimit(2)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.vertical, 6)
         .frame(width: self.width, alignment: .leading)
+    }
+
+    private var actionButton: some View {
+        Text(self.model.actionText)
+            .font(.caption.weight(.bold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(
+                Capsule()
+                    .fill(CodexBarOrangeTheme.actionColor.opacity(self.model.isActionEnabled ? 1 : 0.72)))
+            .overlay(
+                Capsule()
+                    .stroke(.white.opacity(self.isActionHovered ? 0.45 : 0), lineWidth: 1))
+            .shadow(
+                color: CodexBarOrangeTheme.actionColor.opacity(self.isActionHovered ? 0.34 : 0),
+                radius: self.isActionHovered ? 5 : 0,
+                y: self.isActionHovered ? 2 : 0)
+            .scaleEffect(self.isActionHovered ? 1.08 : 1, anchor: .center)
+            .animation(.snappy(duration: 0.12), value: self.isActionHovered)
+            .onHover { hovering in
+                self.isActionHovered = hovering && self.model.isActionEnabled
+            }
     }
 }
 
