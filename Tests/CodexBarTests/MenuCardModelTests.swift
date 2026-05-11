@@ -296,6 +296,7 @@ struct MenuCardModelTests {
         #expect(model.planText == "Plus")
         #expect(model.subtitleText.hasPrefix("Updated"))
         #expect(model.progressColor != Color.clear)
+        #expect(model.progressGradientColors.count == 3)
         #expect(model.metrics[1].resetText?.isEmpty == false)
     }
 
@@ -339,6 +340,7 @@ struct MenuCardModelTests {
             now: now))
 
         #expect(model.metrics.count == 1)
+        #expect(model.progressGradientColors.isEmpty)
         #expect(model.metrics.first?.title == "Session")
         #expect(model.planText == "Max")
     }
