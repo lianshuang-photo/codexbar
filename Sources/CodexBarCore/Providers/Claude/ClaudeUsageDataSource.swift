@@ -3,7 +3,6 @@ import Foundation
 public enum ClaudeUsageDataSource: String, CaseIterable, Identifiable, Sendable {
     case auto
     case oauth
-    case web
     case cli
 
     public var id: String {
@@ -14,7 +13,6 @@ public enum ClaudeUsageDataSource: String, CaseIterable, Identifiable, Sendable 
         switch self {
         case .auto: "Auto"
         case .oauth: "OAuth API"
-        case .web: "Web API (cookies)"
         case .cli: "CLI (PTY)"
         }
     }
@@ -25,8 +23,6 @@ public enum ClaudeUsageDataSource: String, CaseIterable, Identifiable, Sendable 
             "auto"
         case .oauth:
             "oauth"
-        case .web:
-            "web"
         case .cli:
             "cli"
         }

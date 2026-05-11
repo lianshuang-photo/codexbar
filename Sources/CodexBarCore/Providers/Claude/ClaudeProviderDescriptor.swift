@@ -33,7 +33,7 @@ public enum ClaudeProviderDescriptor {
                 supportsTokenCost: true,
                 noDataMessage: self.noDataMessage),
             fetchPlan: ProviderFetchPlan(
-                sourceModes: [.auto, .web, .cli, .oauth],
+                sourceModes: [.auto, .cli, .oauth],
                 pipeline: ProviderFetchPipeline(resolveStrategies: self.resolveStrategies)),
             cli: ProviderCLIConfig(
                 name: "claude",
@@ -53,8 +53,6 @@ public enum ClaudeProviderDescriptor {
             let strategy: any ProviderFetchStrategy = switch step.dataSource {
             case .oauth:
                 ClaudeOAuthFetchStrategy()
-            case .web:
-                ClaudeWebFetchStrategy(browserDetection: context.browserDetection)
             case .cli:
                 ClaudeCLIFetchStrategy(
                     useWebExtras: context.runtime == .app
@@ -76,9 +74,6 @@ public enum ClaudeProviderDescriptor {
             runtime: context.runtime,
             selectedDataSource: Self.sourceDataSource(from: context.sourceMode),
             webExtrasEnabled: webExtrasEnabled,
-            hasWebSession: ClaudeWebFetchStrategy.isAvailableForFallback(
-                context: context,
-                browserDetection: context.browserDetection),
             hasCLI: ClaudeCLIResolver.isAvailable(environment: context.env),
             hasOAuthCredentials: needsOAuthAvailability && ClaudeOAuthPlanningAvailability.isAvailable(
                 runtime: context.runtime,
@@ -98,7 +93,6 @@ public enum ClaudeProviderDescriptor {
     public static func resolveUsageStrategy(
         selectedDataSource: ClaudeUsageDataSource,
         webExtrasEnabled: Bool,
-        hasWebSession: Bool,
         hasCLI: Bool,
         hasOAuthCredentials: Bool) -> ClaudeUsageStrategy
     {
@@ -106,18 +100,17 @@ public enum ClaudeProviderDescriptor {
             runtime: .app,
             selectedDataSource: selectedDataSource,
             webExtrasEnabled: webExtrasEnabled,
-            hasWebSession: hasWebSession,
             hasCLI: hasCLI,
             hasOAuthCredentials: hasOAuthCredentials))
         return plan.compatibilityStrategy ?? ClaudeUsageStrategy(dataSource: selectedDataSource, useWebExtras: false)
     }
 
+    /// Maps the cross-provider ProviderSourceMode into the (now web-free) Claude data source.
+    /// Legacy "web" selections coerce to .auto so previously-saved preferences keep working.
     private static func sourceDataSource(from mode: ProviderSourceMode) -> ClaudeUsageDataSource {
         switch mode {
-        case .auto, .api:
+        case .auto, .api, .web:
             .auto
-        case .web:
-            .web
         case .cli:
             .cli
         case .oauth:
@@ -312,53 +305,6 @@ struct ClaudeOAuthFetchStrategy: ProviderFetchStrategy {
     }
 }
 
-struct ClaudeWebFetchStrategy: ProviderFetchStrategy {
-    let id: String = "claude.web"
-    let kind: ProviderFetchKind = .web
-    let browserDetection: BrowserDetection
-
-    func isAvailable(_ context: ProviderFetchContext) async -> Bool {
-        Self.isAvailableForFallback(context: context, browserDetection: self.browserDetection)
-    }
-
-    func fetch(_ context: ProviderFetchContext) async throws -> ProviderFetchResult {
-        let fetcher = ClaudeUsageFetcher(
-            browserDetection: browserDetection,
-            dataSource: .web,
-            useWebExtras: false,
-            manualCookieHeader: Self.manualCookieHeader(from: context),
-            webOrganizationID: context.settings?.claude?.organizationID)
-        let usage = try await fetcher.loadLatestUsage(model: "sonnet")
-        return self.makeResult(
-            usage: ClaudeOAuthFetchStrategy.snapshot(from: usage),
-            sourceLabel: "web")
-    }
-
-    func shouldFallback(on error: Error, context: ProviderFetchContext) -> Bool {
-        guard context.sourceMode == .auto else { return false }
-        _ = error
-        // In CLI runtime auto mode, web comes before CLI so fallback is required.
-        // In app runtime auto mode, web is terminal and should surface its concrete error.
-        return context.runtime == .cli
-    }
-
-    fileprivate static func isAvailableForFallback(
-        context: ProviderFetchContext,
-        browserDetection: BrowserDetection) -> Bool
-    {
-        if let header = self.manualCookieHeader(from: context) {
-            return ClaudeWebAPIFetcher.hasSessionKey(cookieHeader: header)
-        }
-        guard context.settings?.claude?.cookieSource != .off else { return false }
-        return ClaudeWebAPIFetcher.hasSessionKey(browserDetection: browserDetection)
-    }
-
-    private static func manualCookieHeader(from context: ProviderFetchContext) -> String? {
-        guard context.settings?.claude?.cookieSource == .manual else { return nil }
-        return CookieHeaderNormalizer.normalize(context.settings?.claude?.manualCookieHeader)
-    }
-}
-
 struct ClaudeCLIFetchStrategy: ProviderFetchStrategy {
     let id: String = "claude.cli"
     let kind: ProviderFetchKind = .cli
@@ -387,10 +333,8 @@ struct ClaudeCLIFetchStrategy: ProviderFetchStrategy {
     }
 
     func shouldFallback(on _: Error, context: ProviderFetchContext) -> Bool {
-        guard context.runtime == .app, context.sourceMode == .auto else { return false }
-        // Only fall through when web is actually available; otherwise preserve actionable CLI errors.
-        return ClaudeWebFetchStrategy.isAvailableForFallback(
-            context: context,
-            browserDetection: self.browserDetection)
+        // Web fallback was removed for ToS reasons; CLI errors are now terminal.
+        _ = context
+        return false
     }
 }

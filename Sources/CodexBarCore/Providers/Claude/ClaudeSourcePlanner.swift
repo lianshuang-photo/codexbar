@@ -4,7 +4,6 @@ public struct ClaudeSourcePlanningInput: Equatable, Sendable {
     public let runtime: ProviderRuntime
     public let selectedDataSource: ClaudeUsageDataSource
     public let webExtrasEnabled: Bool
-    public let hasWebSession: Bool
     public let hasCLI: Bool
     public let hasOAuthCredentials: Bool
 
@@ -12,14 +11,12 @@ public struct ClaudeSourcePlanningInput: Equatable, Sendable {
         runtime: ProviderRuntime,
         selectedDataSource: ClaudeUsageDataSource,
         webExtrasEnabled: Bool,
-        hasWebSession: Bool,
         hasCLI: Bool,
         hasOAuthCredentials: Bool)
     {
         self.runtime = runtime
         self.selectedDataSource = selectedDataSource
         self.webExtrasEnabled = webExtrasEnabled
-        self.hasWebSession = hasWebSession
         self.hasCLI = hasCLI
         self.hasOAuthCredentials = hasOAuthCredentials
     }
@@ -29,8 +26,6 @@ public enum ClaudeSourcePlanReason: String, Equatable, Sendable {
     case explicitSourceSelection = "explicit-source-selection"
     case appAutoPreferredOAuth = "app-auto-preferred-oauth"
     case appAutoFallbackCLI = "app-auto-fallback-cli"
-    case appAutoFallbackWeb = "app-auto-fallback-web"
-    case cliAutoPreferredWeb = "cli-auto-preferred-web"
     case cliAutoFallbackCLI = "cli-auto-fallback-cli"
 }
 
@@ -71,7 +66,7 @@ public struct ClaudeFetchPlan: Equatable, Sendable {
         switch self.input.selectedDataSource {
         case .auto:
             self.availableSteps.first
-        case .oauth, .web, .cli:
+        case .oauth, .cli:
             self.orderedSteps.first
         }
     }
@@ -80,7 +75,7 @@ public struct ClaudeFetchPlan: Equatable, Sendable {
         switch self.input.selectedDataSource {
         case .auto:
             self.availableSteps
-        case .oauth, .web, .cli:
+        case .oauth, .cli:
             self.orderedSteps
         }
     }
@@ -176,18 +171,14 @@ public enum ClaudeSourcePlanner {
                 [
                     self.step(.oauth, reason: .appAutoPreferredOAuth, input: input),
                     self.step(.cli, reason: .appAutoFallbackCLI, input: input),
-                    self.step(.web, reason: .appAutoFallbackWeb, input: input),
                 ]
             case .cli:
                 [
-                    self.step(.web, reason: .cliAutoPreferredWeb, input: input),
                     self.step(.cli, reason: .cliAutoFallbackCLI, input: input),
                 ]
             }
         case .oauth:
             [self.step(.oauth, reason: .explicitSourceSelection, input: input)]
-        case .web:
-            [self.step(.web, reason: .explicitSourceSelection, input: input)]
         case .cli:
             [self.step(.cli, reason: .explicitSourceSelection, input: input)]
         }
@@ -213,8 +204,6 @@ public enum ClaudeSourcePlanner {
             false
         case .oauth:
             input.hasOAuthCredentials
-        case .web:
-            input.hasWebSession
         case .cli:
             input.hasCLI
         }
