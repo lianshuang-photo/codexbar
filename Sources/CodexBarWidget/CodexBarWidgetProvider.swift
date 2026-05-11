@@ -58,6 +58,7 @@ enum ProviderChoice: String, AppEnum {
         case .antigravity: self = .antigravity
         case .cursor: return nil // Cursor not yet supported in widgets
         case .opencode: self = .opencode
+        case .openclaw: return nil // OpenClaw not yet supported in widgets
         case .opencodego: self = .opencodego
         case .zai: self = .zai
         case .factory: return nil // Factory not yet supported in widgets

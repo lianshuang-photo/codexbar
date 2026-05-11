@@ -17,6 +17,7 @@ enum ProviderImplementationRegistry {
         case .claude: ClaudeProviderImplementation()
         case .cursor: CursorProviderImplementation()
         case .opencode: OpenCodeProviderImplementation()
+        case .openclaw: OpenClawProviderImplementation()
         case .opencodego: OpenCodeGoProviderImplementation()
         case .alibaba: AlibabaCodingPlanProviderImplementation()
         case .factory: FactoryProviderImplementation()

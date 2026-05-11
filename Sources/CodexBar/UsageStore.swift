@@ -888,6 +888,7 @@ extension UsageStore {
                 .gemini: "Gemini debug log not yet implemented",
                 .antigravity: "Antigravity debug log not yet implemented",
                 .opencode: "OpenCode debug log not yet implemented",
+                .openclaw: "OpenClaw debug log not yet implemented",
                 .alibaba: "Alibaba Coding Plan debug log not yet implemented",
                 .factory: "Droid debug log not yet implemented",
                 .copilot: "Copilot debug log not yet implemented",
@@ -975,9 +976,9 @@ extension UsageStore {
                         configToken: nil,
                         hasEnvToken: deepSeekHasEnvToken,
                         hasTokenAccount: deepSeekHasTokenAccount)
-                case .gemini, .antigravity, .opencode, .opencodego, .factory, .copilot, .vertexai, .kilo, .kiro, .kimi,
-                     .kimik2, .jetbrains, .perplexity, .mimo, .doubao, .abacus, .mistral, .codebuff, .crof, .windsurf,
-                     .venice, .manus, .commandcode, .stepfun:
+                case .gemini, .antigravity, .opencode, .openclaw, .opencodego, .factory, .copilot, .vertexai, .kilo,
+                     .kiro, .kimi, .kimik2, .jetbrains, .perplexity, .mimo, .doubao, .abacus, .mistral, .codebuff,
+                     .crof, .windsurf, .venice, .manus, .commandcode, .stepfun:
                     return unimplementedDebugLogMessages[provider] ?? "Debug log not yet implemented"
                 }
             }

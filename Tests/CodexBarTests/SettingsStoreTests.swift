@@ -1081,6 +1081,7 @@ struct SettingsStoreTests {
             .claude,
             .cursor,
             .opencode,
+            .openclaw,
             .opencodego,
             .alibaba,
             .factory,
