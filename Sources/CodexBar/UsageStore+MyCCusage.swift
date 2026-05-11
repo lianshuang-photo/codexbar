@@ -65,7 +65,7 @@ extension UsageStore {
         }
     }
 
-    func syncMyCCusageNow() async {
+    func syncMyCCusageNow(didStart: (@MainActor @Sendable () -> Void)? = nil) async {
         guard !self.myCCusageSyncInFlight else { return }
         guard self.myCCusageConfig != nil else {
             self.myCCusageLastError = "MyCCusage is not configured."
@@ -73,22 +73,24 @@ extension UsageStore {
         }
         self.myCCusageSyncInFlight = true
         self.myCCusageLastError = nil
+        didStart?()
         await self.refreshMyCCusageLeaderboard()
+        let preSyncLeaderboard = self.myCCusageLeaderboard
         let runner = self.myCCusageSyncRunner
         let environment = self.environmentBase
         let result = await Task.detached(priority: .utility) {
             runner.sync(environment: environment)
         }.value
-        self.myCCusageSyncInFlight = false
         if result.succeeded {
             self.myCCusageLastSyncAt = Date()
-            await self.refreshMyCCusageLeaderboard()
+            await self.refreshMyCCusageLeaderboardAfterSync(previous: preSyncLeaderboard)
         } else {
             self.myCCusageLastError = result.output.isEmpty
                 ? "ccusage-cherry-collector sync failed with exit code \(result.exitCode)."
                 : result.output
             await self.refreshMyCCusageLeaderboard()
         }
+        self.myCCusageSyncInFlight = false
         if let interval = self.myCCusageConfig.flatMap({ Self.myCCusageIntervalSeconds(for: $0.schedule) }) {
             self.myCCusageNextSyncAt = Date().addingTimeInterval(interval)
         }
@@ -114,6 +116,24 @@ extension UsageStore {
             self.myCCusageLastError = error.localizedDescription
             return false
         }
+    }
+
+    @discardableResult
+    private func refreshMyCCusageLeaderboardAfterSync(previous: MyCCusageLeaderboardSnapshot?) async -> Bool {
+        let attempts = max(1, self.myCCusagePostSyncPollAttempts)
+        for attempt in 0..<attempts {
+            if attempt > 0, self.myCCusagePostSyncPollInterval > 0 {
+                let nanoseconds = UInt64(self.myCCusagePostSyncPollInterval * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: nanoseconds)
+            }
+            let refreshed = await self.refreshMyCCusageLeaderboard()
+            guard refreshed else { continue }
+            guard let previous else { return true }
+            if self.myCCusageLeaderboard != previous {
+                return true
+            }
+        }
+        return self.myCCusageLeaderboard != nil
     }
 
     static func myCCusageTodayString(now: Date = Date(), calendar: Calendar = .current) -> String {

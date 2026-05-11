@@ -245,6 +245,8 @@ final class UsageStore {
     @ObservationIgnored let myCCusageConfigStore: MyCCusageConfigStore
     @ObservationIgnored let myCCusageStatsClient: MyCCusageStatsClient
     @ObservationIgnored let myCCusageSyncRunner: MyCCusageSyncRunner
+    @ObservationIgnored var myCCusagePostSyncPollInterval: TimeInterval = 2
+    @ObservationIgnored var myCCusagePostSyncPollAttempts = 8
 
     init(
         fetcher: UsageFetcher,

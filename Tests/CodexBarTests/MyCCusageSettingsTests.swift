@@ -153,6 +153,106 @@ struct MyCCusageSettingsTests {
         #expect(store.myCCusageLastError == nil)
     }
 
+    @Test
+    func `manual sync polls leaderboard until daemon upload is visible`() async throws {
+        let env = try TestEnv()
+        defer { env.cleanup() }
+        try """
+        {
+          "enabled": true,
+          "apiKey": "secret",
+          "endpoint": "https://example.test/api/usage-sync",
+          "deviceId": "mine",
+          "agentTypes": ["claude-code", "cherry-studio"]
+        }
+        """.write(to: env.configURL, atomically: true, encoding: .utf8)
+
+        let syncURL = env.root.appendingPathComponent("ccusage-cherry-collector")
+        try """
+        #!/bin/sh
+        echo "daemon sync triggered"
+        exit 0
+        """.write(to: syncURL, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: syncURL.path)
+
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [MyCCusagePollingStatsStubURLProtocol.self]
+        let session = URLSession(configuration: config)
+        let today = UsageStore.myCCusageTodayString()
+        MyCCusagePollingStatsStubURLProtocol.requests = []
+        MyCCusagePollingStatsStubURLProtocol.handler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"])!
+            let ownCost = MyCCusagePollingStatsStubURLProtocol.requests.count >= 3 ? "25.00" : "10.00"
+            let data = Data("""
+            {
+              "devices": [
+                { "deviceId": "mine", "displayName": "lianshuang" },
+                { "deviceId": "leader", "displayName": "jd" }
+              ],
+              "deviceData": [
+                { "date": "\(today)", "deviceId": "mine",
+                  "totalCost": \(ownCost), "totalTokens": 1000 },
+                { "date": "\(today)", "deviceId": "leader",
+                  "totalCost": 50.00, "totalTokens": 1 }
+              ]
+            }
+            """.utf8)
+            return (response, data)
+        }
+        defer {
+            MyCCusagePollingStatsStubURLProtocol.requests = []
+            MyCCusagePollingStatsStubURLProtocol.handler = nil
+        }
+
+        let suite = "MyCCusageSettingsTests-sync-poll-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defaults.removePersistentDomain(forName: suite)
+        let settings = SettingsStore(
+            userDefaults: defaults,
+            configStore: testConfigStore(suiteName: suite),
+            zaiTokenStore: NoopZaiTokenStore(),
+            syntheticTokenStore: NoopSyntheticTokenStore(),
+            codexCookieStore: InMemoryCookieHeaderStore(),
+            claudeCookieStore: InMemoryCookieHeaderStore(),
+            cursorCookieStore: InMemoryCookieHeaderStore(),
+            opencodeCookieStore: InMemoryCookieHeaderStore(),
+            factoryCookieStore: InMemoryCookieHeaderStore(),
+            minimaxCookieStore: InMemoryMiniMaxCookieStore(),
+            minimaxAPITokenStore: InMemoryMiniMaxAPITokenStore(),
+            kimiTokenStore: InMemoryKimiTokenStore(),
+            kimiK2TokenStore: InMemoryKimiK2TokenStore(),
+            augmentCookieStore: InMemoryCookieHeaderStore(),
+            ampCookieStore: InMemoryCookieHeaderStore(),
+            copilotTokenStore: InMemoryCopilotTokenStore(),
+            tokenAccountStore: InMemoryTokenAccountStore())
+        let store = UsageStore(
+            fetcher: UsageFetcher(),
+            browserDetection: BrowserDetection(cacheTTL: 0),
+            settings: settings,
+            startupBehavior: .testing,
+            environmentBase: ["PATH": "", "SHELL": "/bin/false"],
+            myCCusageConfigStore: MyCCusageConfigStore(configURL: env.configURL),
+            myCCusageStatsClient: MyCCusageStatsClient(session: session),
+            myCCusageSyncRunner: MyCCusageSyncRunner(binaryURL: syncURL))
+        store.myCCusagePostSyncPollInterval = 0
+        store.myCCusagePostSyncPollAttempts = 3
+
+        await store.syncMyCCusageNow()
+
+        #expect(MyCCusagePollingStatsStubURLProtocol.requests.map(\.url?.path) == [
+            "/api/usage-stats",
+            "/api/usage-stats",
+            "/api/usage-stats",
+        ])
+        #expect(store.myCCusageLeaderboard?.own.totalCost == 25.00)
+        #expect(store.myCCusageSyncInFlight == false)
+        #expect(store.myCCusageLastError == nil)
+    }
+
     private struct TestEnv {
         let root: URL
         let configURL: URL
@@ -171,6 +271,38 @@ struct MyCCusageSettingsTests {
 }
 
 final class MyCCusageStatsStubURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var requests: [URLRequest] = []
+    nonisolated(unsafe) static var handler: (@Sendable (URLRequest) throws -> (HTTPURLResponse, Data))?
+
+    override static func canInit(with _: URLRequest) -> Bool {
+        true
+    }
+
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        Self.requests.append(self.request)
+        guard let handler = Self.handler else {
+            self.client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+
+        do {
+            let (response, data) = try handler(self.request)
+            self.client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            self.client?.urlProtocol(self, didLoad: data)
+            self.client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            self.client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+
+    override func stopLoading() {}
+}
+
+final class MyCCusagePollingStatsStubURLProtocol: URLProtocol {
     nonisolated(unsafe) static var requests: [URLRequest] = []
     nonisolated(unsafe) static var handler: (@Sendable (URLRequest) throws -> (HTTPURLResponse, Data))?
 
