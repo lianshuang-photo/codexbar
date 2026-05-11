@@ -73,10 +73,22 @@ public struct MyCCusageSyncRunner: Sendable {
         guard let binary = self.binaryURL ?? Self.findBinary(environment: environment) else {
             return MyCCusageSyncResult(exitCode: 127, output: "ccusage-cherry-collector is not installed.")
         }
+        let syncEnvironment = Self.syncEnvironment(environment)
         return Self.run(
             executableURL: binary,
             arguments: Self.syncCommand(binaryURL: binary).arguments,
+            environment: syncEnvironment,
             timeout: 60 * 10)
+    }
+
+    public static func syncEnvironment(_ environment: [String: String]) -> [String: String] {
+        var resolved = environment
+        #if os(macOS)
+        if resolved["CHROME_PATH"]?.isEmpty ?? true {
+            resolved["CHROME_PATH"] = "/bin/false"
+        }
+        #endif
+        return resolved
     }
 
     private static func findBinary(environment: [String: String]) -> URL? {
@@ -99,15 +111,21 @@ public struct MyCCusageSyncRunner: Sendable {
     }
 
     private static func runAndCapture(executableURL: URL, arguments: [String], timeout: TimeInterval) -> String? {
-        let result = Self.run(executableURL: executableURL, arguments: arguments, timeout: timeout)
+        let result = Self.run(executableURL: executableURL, arguments: arguments, environment: nil, timeout: timeout)
         guard result.succeeded else { return nil }
         return result.output
     }
 
-    private static func run(executableURL: URL, arguments: [String], timeout: TimeInterval) -> MyCCusageSyncResult {
+    private static func run(
+        executableURL: URL,
+        arguments: [String],
+        environment: [String: String]?,
+        timeout: TimeInterval) -> MyCCusageSyncResult
+    {
         let process = Process()
         process.executableURL = executableURL
         process.arguments = arguments
+        process.environment = environment
 
         let pipe = Pipe()
         process.standardOutput = pipe

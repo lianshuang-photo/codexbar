@@ -167,6 +167,7 @@ struct MyCCusageCoreTests {
         defer { env.cleanup() }
 
         let binaryURL = env.root.appendingPathComponent("ccusage-cherry-collector")
+        let envURL = env.root.appendingPathComponent("sync-env.txt")
         try """
         #!/bin/sh
         if [ "$1" = "--version" ]; then
@@ -174,6 +175,7 @@ struct MyCCusageCoreTests {
           exit 0
         fi
         if [ "$1" = "sync" ]; then
+          echo "$CHROME_PATH" > "\(envURL.path)"
           echo "synced"
           exit 0
         fi
@@ -189,6 +191,18 @@ struct MyCCusageCoreTests {
         #expect(status.binaryURL == binaryURL)
         #expect(status.version == "1.0.4")
         #expect(result == MyCCusageSyncResult(exitCode: 0, output: "synced"))
+        #if os(macOS)
+        let chromePath = try String(contentsOf: envURL, encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        #expect(chromePath == "/bin/false")
+        #endif
+    }
+
+    @Test
+    func `sync runner preserves explicit chrome path override`() {
+        let environment = MyCCusageSyncRunner.syncEnvironment(["CHROME_PATH": "/tmp/chrome"])
+
+        #expect(environment["CHROME_PATH"] == "/tmp/chrome")
     }
 
     private struct TestEnv {
