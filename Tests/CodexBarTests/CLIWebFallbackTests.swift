@@ -121,41 +121,22 @@ struct CLIWebFallbackTests {
     }
 
     @Test
-    func `claude falls back when no session key`() {
-        let context = self.makeContext()
-        let strategy = ClaudeWebFetchStrategy(browserDetection: BrowserDetection(cacheTTL: 0))
-        #expect(strategy.shouldFallback(on: ClaudeWebAPIFetcher.FetchError.noSessionKeyFound, context: context))
-        #expect(strategy.shouldFallback(on: ClaudeWebAPIFetcher.FetchError.unauthorized, context: context))
-    }
-
-    @Test
-    func `claude CLI fallback is enabled only for app auto`() {
+    func `claude CLI never falls back after web removal`() {
+        // The Claude web cookie path was removed for ToS reasons, so CLI errors are
+        // now terminal and never trigger a secondary fetch.
         let strategy = ClaudeCLIFetchStrategy(
             useWebExtras: false,
             manualCookieHeader: nil,
             browserDetection: BrowserDetection(cacheTTL: 0))
         let error = ClaudeUsageError.parseFailed("cli failed")
         let webAvailableSettings = self.makeClaudeSettingsSnapshot(cookieHeader: "sessionKey=sk-ant-test")
-        let webUnavailableSettings = self.makeClaudeSettingsSnapshot(cookieHeader: "foo=bar")
 
-        #expect(strategy.shouldFallback(
-            on: error,
-            context: self.makeContext(runtime: .app, sourceMode: .auto, settings: webAvailableSettings)))
         #expect(!strategy.shouldFallback(
             on: error,
-            context: self.makeContext(runtime: .app, sourceMode: .auto, settings: webUnavailableSettings)))
+            context: self.makeContext(runtime: .app, sourceMode: .auto, settings: webAvailableSettings)))
         #expect(!strategy.shouldFallback(on: error, context: self.makeContext(runtime: .app, sourceMode: .cli)))
-        #expect(!strategy.shouldFallback(on: error, context: self.makeContext(runtime: .app, sourceMode: .web)))
         #expect(!strategy.shouldFallback(on: error, context: self.makeContext(runtime: .app, sourceMode: .oauth)))
         #expect(!strategy.shouldFallback(on: error, context: self.makeContext(runtime: .cli, sourceMode: .auto)))
-    }
-
-    @Test
-    func `claude web fallback is disabled for app auto`() {
-        let strategy = ClaudeWebFetchStrategy(browserDetection: BrowserDetection(cacheTTL: 0))
-        let error = ClaudeWebAPIFetcher.FetchError.unauthorized
-        #expect(strategy.shouldFallback(on: error, context: self.makeContext(runtime: .cli, sourceMode: .auto)))
-        #expect(!strategy.shouldFallback(on: error, context: self.makeContext(runtime: .app, sourceMode: .auto)))
     }
 
     private func makeCodexDisplayOnlyDecision() -> CodexDashboardAuthorityDecision {

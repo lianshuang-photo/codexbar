@@ -289,7 +289,6 @@ struct ClaudeOAuthTests {
         let strategy = ClaudeProviderDescriptor.resolveUsageStrategy(
             selectedDataSource: .auto,
             webExtrasEnabled: false,
-            hasWebSession: true,
             hasCLI: true,
             hasOAuthCredentials: true)
         #expect(strategy.dataSource == .oauth)
@@ -300,31 +299,20 @@ struct ClaudeOAuthTests {
         let strategy = ClaudeProviderDescriptor.resolveUsageStrategy(
             selectedDataSource: .auto,
             webExtrasEnabled: false,
-            hasWebSession: true,
             hasCLI: true,
             hasOAuthCredentials: false)
         #expect(strategy.dataSource == .cli)
     }
 
     @Test
-    func `falls back to web when O auth missing and CLI missing`() {
+    func `keeps explicit selection when O auth missing and CLI missing`() {
+        // After web removal, no source falls back to web; the auto planner returns
+        // its initial selection rather than picking up an unavailable source.
         let strategy = ClaudeProviderDescriptor.resolveUsageStrategy(
             selectedDataSource: .auto,
             webExtrasEnabled: false,
-            hasWebSession: true,
             hasCLI: false,
             hasOAuthCredentials: false)
-        #expect(strategy.dataSource == .web)
-    }
-
-    @Test
-    func `falls back to CLI when O auth missing and web missing`() {
-        let strategy = ClaudeProviderDescriptor.resolveUsageStrategy(
-            selectedDataSource: .auto,
-            webExtrasEnabled: false,
-            hasWebSession: false,
-            hasCLI: true,
-            hasOAuthCredentials: false)
-        #expect(strategy.dataSource == .cli)
+        #expect(strategy.dataSource == .auto)
     }
 }

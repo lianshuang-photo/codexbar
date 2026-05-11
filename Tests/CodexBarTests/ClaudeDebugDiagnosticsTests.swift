@@ -80,13 +80,13 @@ struct ClaudeDebugDiagnosticsTests {
             }
         }
 
-        #expect(text.contains("planner_order=oauth→cli→web"))
+        #expect(text.contains("planner_order=oauth→cli"))
         #expect(text.contains("planner_selected=oauth"))
         #expect(text.contains("planner_no_source=false"))
         #expect(text.contains("planner_step.oauth=available reason=app-auto-preferred-oauth"))
         #expect(text.contains("planner_step.cli="))
         #expect(text.contains("reason=app-auto-fallback-cli"))
-        #expect(text.contains("planner_step.web=available reason=app-auto-fallback-web"))
+        #expect(!text.contains("planner_step.web"))
         #expect(!text.contains("auto_heuristic="))
     }
 

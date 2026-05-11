@@ -96,7 +96,7 @@ struct ClaudeBaselineCharacterizationTests {
     }
 
     @Test
-    func `app auto pipeline order is OAuth then CLI then web`() async {
+    func `app auto pipeline order is OAuth then CLI`() async {
         let settings = ProviderSettingsSnapshot.make(claude: .init(
             usageDataSource: .auto,
             webExtrasEnabled: true,
@@ -108,11 +108,11 @@ struct ClaudeBaselineCharacterizationTests {
             "CLAUDE_CLI_PATH": "/usr/bin/true",
         ]
         let strategyIDs = await self.strategyIDs(runtime: .app, sourceMode: .auto, env: env, settings: settings)
-        #expect(strategyIDs == ["claude.oauth", "claude.cli", "claude.web"])
+        #expect(strategyIDs == ["claude.oauth", "claude.cli"])
     }
 
     @Test
-    func `CLI auto pipeline order is web then CLI`() async {
+    func `CLI auto pipeline is CLI only after web removal`() async {
         let settings = ProviderSettingsSnapshot.make(claude: .init(
             usageDataSource: .auto,
             webExtrasEnabled: false,
@@ -122,7 +122,7 @@ struct ClaudeBaselineCharacterizationTests {
             "CLAUDE_CLI_PATH": "/usr/bin/true",
         ]
         let strategyIDs = await self.strategyIDs(runtime: .cli, sourceMode: .auto, env: env, settings: settings)
-        #expect(strategyIDs == ["claude.web", "claude.cli"])
+        #expect(strategyIDs == ["claude.cli"])
     }
 
     @Test
@@ -155,11 +155,11 @@ struct ClaudeBaselineCharacterizationTests {
         await self.withNoOAuthCredentials {
             await ClaudeCLIResolver.withResolvedBinaryPathOverrideForTesting("/definitely/missing/claude") {
                 let strategyIDs = await self.strategyIDs(runtime: .app, sourceMode: .auto, env: env, settings: settings)
-                #expect(strategyIDs == ["claude.oauth", "claude.cli", "claude.web"])
+                #expect(strategyIDs == ["claude.oauth", "claude.cli"])
 
                 let outcome = await self.fetchOutcome(runtime: .app, sourceMode: .auto, env: env, settings: settings)
-                #expect(outcome.attempts.map(\.strategyID) == ["claude.oauth", "claude.cli", "claude.web"])
-                #expect(outcome.attempts.map(\.wasAvailable) == [false, false, false])
+                #expect(outcome.attempts.map(\.strategyID) == ["claude.oauth", "claude.cli"])
+                #expect(outcome.attempts.map(\.wasAvailable) == [false, false])
 
                 switch outcome.result {
                 case let .failure(error as ProviderFetchError):
@@ -260,7 +260,6 @@ struct ClaudeBaselineCharacterizationTests {
     @Test(arguments: [
         (ProviderSourceMode.oauth, "claude.oauth"),
         (ProviderSourceMode.cli, "claude.cli"),
-        (ProviderSourceMode.web, "claude.web"),
     ])
     func `explicit modes resolve single Claude strategy`(
         sourceMode: ProviderSourceMode,
@@ -273,7 +272,6 @@ struct ClaudeBaselineCharacterizationTests {
     @Test(arguments: [
         (ProviderSourceMode.oauth, "claude.oauth"),
         (ProviderSourceMode.cli, "claude.cli"),
-        (ProviderSourceMode.web, "claude.web"),
     ])
     func `CLI explicit modes resolve single Claude strategy`(
         sourceMode: ProviderSourceMode,
@@ -281,6 +279,19 @@ struct ClaudeBaselineCharacterizationTests {
     {
         let strategyIDs = await self.strategyIDs(runtime: .cli, sourceMode: sourceMode)
         #expect(strategyIDs == [expectedStrategyID])
+    }
+
+    @Test
+    func `legacy web source mode coerces to auto`() async {
+        // Previously-saved "web" preferences should fall back to the auto pipeline
+        // (OAuth → CLI) instead of producing zero strategies.
+        let env = [
+            ClaudeOAuthCredentialsStore.environmentTokenKey: "oauth-token",
+            ClaudeOAuthCredentialsStore.environmentScopesKey: "user:profile",
+            "CLAUDE_CLI_PATH": "/usr/bin/true",
+        ]
+        let strategyIDs = await self.strategyIDs(runtime: .app, sourceMode: .web, env: env)
+        #expect(strategyIDs == ["claude.oauth", "claude.cli"])
     }
 
     @Test
