@@ -9,36 +9,30 @@ struct ClaudeSourcePlannerTests {
             runtime: .app,
             selectedDataSource: .auto,
             webExtrasEnabled: false,
-            hasWebSession: true,
             hasCLI: true,
             hasOAuthCredentials: true))
 
-        #expect(plan.orderedSteps.map(\.dataSource) == [.oauth, .cli, .web])
+        #expect(plan.orderedSteps.map(\.dataSource) == [.oauth, .cli])
         #expect(plan.orderedSteps.map(\.inclusionReason) == [
             .appAutoPreferredOAuth,
             .appAutoFallbackCLI,
-            .appAutoFallbackWeb,
         ])
-        #expect(plan.availableSteps.map(\.dataSource) == [.oauth, .cli, .web])
+        #expect(plan.availableSteps.map(\.dataSource) == [.oauth, .cli])
         #expect(plan.preferredStep?.dataSource == .oauth)
     }
 
     @Test
-    func `CLI auto plan preserves ordered steps and reasons`() {
+    func `CLI auto plan uses CLI only after web removal`() {
         let plan = ClaudeSourcePlanner.resolve(input: ClaudeSourcePlanningInput(
             runtime: .cli,
             selectedDataSource: .auto,
             webExtrasEnabled: false,
-            hasWebSession: true,
             hasCLI: true,
             hasOAuthCredentials: false))
 
-        #expect(plan.orderedSteps.map(\.dataSource) == [.web, .cli])
-        #expect(plan.orderedSteps.map(\.inclusionReason) == [
-            .cliAutoPreferredWeb,
-            .cliAutoFallbackCLI,
-        ])
-        #expect(plan.preferredStep?.dataSource == .web)
+        #expect(plan.orderedSteps.map(\.dataSource) == [.cli])
+        #expect(plan.orderedSteps.map(\.inclusionReason) == [.cliAutoFallbackCLI])
+        #expect(plan.preferredStep?.dataSource == .cli)
     }
 
     @Test
@@ -47,7 +41,6 @@ struct ClaudeSourcePlannerTests {
             runtime: .app,
             selectedDataSource: .cli,
             webExtrasEnabled: true,
-            hasWebSession: false,
             hasCLI: true,
             hasOAuthCredentials: false))
 
@@ -63,7 +56,6 @@ struct ClaudeSourcePlannerTests {
             runtime: .app,
             selectedDataSource: .auto,
             webExtrasEnabled: true,
-            hasWebSession: false,
             hasCLI: true,
             hasOAuthCredentials: false))
 
@@ -77,23 +69,21 @@ struct ClaudeSourcePlannerTests {
             runtime: .app,
             selectedDataSource: .auto,
             webExtrasEnabled: false,
-            hasWebSession: false,
             hasCLI: false,
             hasOAuthCredentials: false)
         let plan = ClaudeSourcePlanner.resolve(input: input)
 
-        #expect(plan.orderedSteps.map(\.dataSource) == [.oauth, .cli, .web])
+        #expect(plan.orderedSteps.map(\.dataSource) == [.oauth, .cli])
         #expect(plan.availableSteps.isEmpty)
         #expect(plan.isNoSourceAvailable)
         #expect(plan.preferredStep == nil)
         #expect(plan.executionSteps.isEmpty)
         #expect(plan.debugLines() == [
-            "planner_order=oauth→cli→web",
+            "planner_order=oauth→cli",
             "planner_selected=none",
             "planner_no_source=true",
             "planner_step.oauth=unavailable reason=app-auto-preferred-oauth",
             "planner_step.cli=unavailable reason=app-auto-fallback-cli",
-            "planner_step.web=unavailable reason=app-auto-fallback-web",
         ])
     }
 
