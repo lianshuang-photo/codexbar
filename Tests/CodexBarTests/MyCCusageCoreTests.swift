@@ -199,10 +199,79 @@ struct MyCCusageCoreTests {
     }
 
     @Test
-    func `sync runner preserves explicit chrome path override`() {
-        let environment = MyCCusageSyncRunner.syncEnvironment(["CHROME_PATH": "/tmp/chrome"])
+    func `sync runner disables browser app executable lookup`() {
+        let environment = MyCCusageSyncRunner.syncEnvironment([
+            "CHROME_PATH": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "PUPPETEER_EXECUTABLE_PATH": "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        ])
 
-        #expect(environment["CHROME_PATH"] == "/tmp/chrome")
+        #if os(macOS)
+        #expect(environment["CHROME_PATH"] == "/bin/false")
+        #expect(environment["PUPPETEER_EXECUTABLE_PATH"] == "/bin/false")
+        #endif
+    }
+
+    @Test
+    func `sync runner prefers existing pm2 collector daemon`() throws {
+        let env = try TestEnv()
+        defer { env.cleanup() }
+
+        let pm2URL = env.root.appendingPathComponent("pm2")
+        let collectorURL = env.root.appendingPathComponent("ccusage-cherry-collector")
+        let argsURL = env.root.appendingPathComponent("pm2-args.txt")
+        let envURL = env.root.appendingPathComponent("pm2-env.txt")
+        try """
+        #!/bin/sh
+        if [ "$1" = "jlist" ]; then
+          echo '[{"name":"ccusage-cherry-collector","pm2_env":{"status":"online"}}]'
+          exit 0
+        fi
+        echo "$*" > "\(argsURL.path)"
+        echo "$CHROME_PATH|$PUPPETEER_EXECUTABLE_PATH" > "\(envURL.path)"
+        echo "pm2 restarted"
+        exit 0
+        """.write(to: pm2URL, atomically: true, encoding: .utf8)
+        try """
+        #!/bin/sh
+        echo "direct collector should not run"
+        exit 9
+        """.write(to: collectorURL, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: pm2URL.path)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: collectorURL.path)
+
+        let runner = MyCCusageSyncRunner()
+        let result = runner.sync(environment: ["PATH": env.root.path])
+
+        #expect(result == MyCCusageSyncResult(exitCode: 0, output: "pm2 restarted"))
+        let args = try String(contentsOf: argsURL, encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        #expect(args == "restart ccusage-cherry-collector --update-env")
+        #if os(macOS)
+        let envText = try String(contentsOf: envURL, encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        #expect(envText == "/bin/false|/bin/false")
+        #endif
+    }
+
+    @Test
+    func `default sync runner refuses direct collector when daemon is unavailable`() throws {
+        let env = try TestEnv()
+        defer { env.cleanup() }
+
+        let collectorURL = env.root.appendingPathComponent("ccusage-cherry-collector")
+        try """
+        #!/bin/sh
+        echo "direct collector should not run"
+        exit 9
+        """.write(to: collectorURL, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: collectorURL.path)
+
+        let runner = MyCCusageSyncRunner()
+        let result = runner.sync(environment: ["PATH": env.root.path])
+
+        #expect(result.exitCode == 127)
+        #expect(result.output.contains("background daemon is not running"))
+        #expect(result.output.contains("ccusage-cherry-collector start --daemon"))
     }
 
     private struct TestEnv {
