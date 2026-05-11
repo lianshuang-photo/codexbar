@@ -40,6 +40,7 @@ public enum UsageProvider: String, CaseIterable, Sendable, Codable {
     case venice
     case commandcode
     case stepfun
+    case cherryStudio = "cherry-studio"
 }
 
 // swiftformat:enable sortDeclarations

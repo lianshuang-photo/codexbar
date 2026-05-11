@@ -1113,6 +1113,7 @@ struct SettingsStoreTests {
             .venice,
             .commandcode,
             .stepfun,
+            .cherryStudio,
         ])
 
         // Move one provider; ensure it's persisted across instances.

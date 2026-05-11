@@ -50,6 +50,7 @@ enum ProviderImplementationRegistry {
         case .venice: VeniceProviderImplementation()
         case .commandcode: CommandCodeProviderImplementation()
         case .stepfun: StepFunProviderImplementation()
+        case .cherryStudio: CherryStudioProviderImplementation()
         }
     }
 
