@@ -1,0 +1,12 @@
+{
+  "ccusageVersion": "18.0.11",
+  "generatedFrom": "node /tmp/ccusage-upstream/apps/ccusage/dist/index.js daily -j --offline --order asc --timezone UTC",
+  "model": "claude-sonnet-4-5-20250929",
+  "date": "2025-10-15",
+  "inputTokens": 3000,
+  "outputTokens": 1300,
+  "cacheCreationTokens": 150,
+  "cacheReadTokens": 600,
+  "totalTokens": 5050,
+  "totalCostUSD": 0.0292425
+}
