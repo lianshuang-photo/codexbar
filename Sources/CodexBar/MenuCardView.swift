@@ -129,20 +129,12 @@ struct UsageMenuCardView: View {
                 Divider()
             }
 
-            if self.model.metrics.isEmpty {
-                if !self.model.usageNotes.isEmpty {
-                    UsageNotesContent(notes: self.model.usageNotes)
-                } else if let placeholder = self.model.placeholder {
-                    Text(placeholder)
-                        .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
-                        .font(.subheadline)
-                }
-            } else {
-                let hasUsage = !self.model.metrics.isEmpty || !self.model.usageNotes.isEmpty
-                let hasCredits = self.model.creditsText != nil
-                let hasProviderCost = self.model.providerCost != nil
-                let hasCost = self.model.tokenUsage != nil || hasProviderCost
+            let hasUsage = !self.model.metrics.isEmpty || !self.model.usageNotes.isEmpty
+            let hasCredits = self.model.creditsText != nil
+            let hasProviderCost = self.model.providerCost != nil
+            let hasCost = self.model.tokenUsage != nil || hasProviderCost
 
+            if hasUsage || hasCredits || hasCost {
                 VStack(alignment: .leading, spacing: 12) {
                     if hasUsage {
                         VStack(alignment: .leading, spacing: 12) {
@@ -209,6 +201,10 @@ struct UsageMenuCardView: View {
                     }
                 }
                 .padding(.bottom, self.model.creditsText == nil ? 6 : 0)
+            } else if let placeholder = self.model.placeholder {
+                Text(placeholder)
+                    .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
+                    .font(.subheadline)
             }
         }
         .padding(.horizontal, 16)
@@ -764,10 +760,15 @@ extension UsageMenuCardView.Model {
             enabled: input.tokenCostUsageEnabled,
             snapshot: input.tokenSnapshot,
             error: input.tokenError)
+        let costFallbackSubtitle = Self.costFallbackSubtitle(
+            input: input,
+            providerCost: providerCost,
+            tokenUsage: tokenUsage)
         let subtitle = Self.subtitle(
             snapshot: input.snapshot,
             isRefreshing: input.isRefreshing,
             lastError: input.lastError,
+            costFallbackText: costFallbackSubtitle,
             now: input.now)
         let redacted = Self.redactedText(input: input, subtitle: subtitle)
         let placeholder = input.snapshot == nil && !input.isRefreshing && input.lastError == nil ? "No usage yet" : nil
@@ -907,27 +908,6 @@ extension UsageMenuCardView.Model {
     private static func isKiloActivitySegment(_ text: String) -> Bool {
         let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return normalized.hasPrefix("auto top-up:")
-    }
-
-    private static func subtitle(
-        snapshot: UsageSnapshot?,
-        isRefreshing: Bool,
-        lastError: String?,
-        now: Date) -> (text: String, style: SubtitleStyle)
-    {
-        if let lastError, !lastError.isEmpty {
-            return (lastError.trimmingCharacters(in: .whitespacesAndNewlines), .error)
-        }
-
-        if isRefreshing, snapshot == nil {
-            return ("Refreshing...", .loading)
-        }
-
-        if let updated = snapshot?.updatedAt {
-            return (UsageFormatter.updatedString(from: updated, now: now), .info)
-        }
-
-        return ("Not fetched yet", .info)
     }
 
     private struct RedactedText {

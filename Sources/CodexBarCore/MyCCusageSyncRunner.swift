@@ -87,6 +87,14 @@ public struct MyCCusageSyncRunner: Sendable {
                 return candidate
             }
         }
+        if let shellHit = ShellCommandLocator.commandV(
+            Self.binaryName,
+            environment["SHELL"],
+            2.0,
+            .default)
+        {
+            return URL(fileURLWithPath: shellHit)
+        }
         return nil
     }
 

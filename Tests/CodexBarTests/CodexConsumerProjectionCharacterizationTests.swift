@@ -112,7 +112,7 @@ struct CodexConsumerProjectionCharacterizationTests {
         #expect(model.creditsText == "Credits unavailable; keep Codex running to refresh.")
         #expect(model.tokenUsage == nil)
         #expect(model.metrics.contains { $0.id == "code-review" } == false)
-        #expect(model.subtitleText == "Override error")
+        #expect(model.subtitleText == "Codex cost is temporarily unavailable. Try refreshing.")
     }
 
     @Test

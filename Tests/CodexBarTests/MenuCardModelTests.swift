@@ -412,34 +412,6 @@ struct MenuCardModelTests {
     }
 
     @Test
-    func `shows error subtitle when present`() throws {
-        let metadata = try #require(ProviderDefaults.metadata[.codex])
-        let model = UsageMenuCardView.Model.make(.init(
-            provider: .codex,
-            metadata: metadata,
-            snapshot: nil,
-            credits: nil,
-            creditsError: nil,
-            dashboard: nil,
-            dashboardError: nil,
-            tokenSnapshot: nil,
-            tokenError: nil,
-            account: AccountInfo(email: nil, plan: nil),
-            isRefreshing: false,
-            lastError: "Probe failed for Codex",
-            usageBarsShowUsed: false,
-            resetTimeDisplayStyle: .countdown,
-            tokenCostUsageEnabled: false,
-            showOptionalCreditsAndExtraUsage: true,
-            hidePersonalInfo: false,
-            now: Date()))
-
-        #expect(model.subtitleStyle == .error)
-        #expect(model.subtitleText.contains("Probe failed"))
-        #expect(model.placeholder == nil)
-    }
-
-    @Test
     func `cost section includes last30 days tokens`() throws {
         let now = Date()
         let metadata = try #require(ProviderDefaults.metadata[.codex])

@@ -73,6 +73,7 @@ extension UsageStore {
         }
         self.myCCusageSyncInFlight = true
         self.myCCusageLastError = nil
+        await self.refreshMyCCusageLeaderboard()
         let runner = self.myCCusageSyncRunner
         let environment = self.environmentBase
         let result = await Task.detached(priority: .utility) {
@@ -86,18 +87,20 @@ extension UsageStore {
             self.myCCusageLastError = result.output.isEmpty
                 ? "ccusage-cherry-collector sync failed with exit code \(result.exitCode)."
                 : result.output
+            await self.refreshMyCCusageLeaderboard()
         }
         if let interval = self.myCCusageConfig.flatMap({ Self.myCCusageIntervalSeconds(for: $0.schedule) }) {
             self.myCCusageNextSyncAt = Date().addingTimeInterval(interval)
         }
     }
 
-    func refreshMyCCusageLeaderboard() async {
+    @discardableResult
+    func refreshMyCCusageLeaderboard() async -> Bool {
         guard self.myCCusageEnabled,
               let config = self.myCCusageConfig,
               let deviceId = config.deviceId,
               let endpoint = URL(string: config.endpoint)
-        else { return }
+        else { return false }
 
         do {
             let data = try await self.myCCusageStatsClient.fetchStats(syncEndpoint: endpoint)
@@ -106,8 +109,10 @@ extension UsageStore {
                 deviceId: deviceId,
                 today: Self.myCCusageTodayString())
             self.myCCusageLastError = nil
+            return true
         } catch {
             self.myCCusageLastError = error.localizedDescription
+            return false
         }
     }
 

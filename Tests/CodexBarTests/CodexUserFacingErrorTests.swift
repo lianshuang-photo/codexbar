@@ -120,7 +120,7 @@ struct CodexUserFacingErrorTests {
         let pane = ProvidersPane(settings: settings, store: store)
         let model = pane._test_menuCardModel(for: .codex)
 
-        #expect(model.subtitleText == "Codex usage is temporarily unavailable. Try refreshing.")
+        #expect(model.subtitleText == "Codex cost is temporarily unavailable. Try refreshing.")
         #expect(
             model.creditsHintText ==
                 "OpenAI web refresh was interrupted. Refresh OpenAI cookies and try again.")
