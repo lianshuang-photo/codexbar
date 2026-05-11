@@ -1,0 +1,85 @@
+name: Build App (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      universal:
+        description: "Build universal binary (arm64 + x86_64). Slower but works on Intel Macs too."
+        required: false
+        default: false
+        type: boolean
+      create_release:
+        description: "Also create a GitHub Release with the zip attached."
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  build-app:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Select Xcode 26.1.1 (if present) or fallback to default
+        run: |
+          set -euo pipefail
+          for candidate in /Applications/Xcode_26.1.1.app /Applications/Xcode_26.1.app /Applications/Xcode.app; do
+            if [[ -d "$candidate" ]]; then
+              sudo xcode-select -s "${candidate}/Contents/Developer"
+              echo "DEVELOPER_DIR=${candidate}/Contents/Developer" >> "$GITHUB_ENV"
+              break
+            fi
+          done
+          /usr/bin/xcodebuild -version
+          swift --version
+
+      - name: Read version
+        id: ver
+        run: |
+          set -euo pipefail
+          source version.env
+          echo "marketing=$MARKETING_VERSION" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Build CodexBar.app (ad-hoc signed)
+        env:
+          CODEXBAR_SIGNING: adhoc
+          ARCHES: ${{ inputs.universal && 'arm64 x86_64' || 'arm64' }}
+        run: |
+          set -euo pipefail
+          ./Scripts/package_app.sh release
+
+      - name: Zip app bundle
+        id: zip
+        run: |
+          set -euo pipefail
+          ZIP="CodexBar-${{ steps.ver.outputs.marketing }}.zip"
+          /usr/bin/ditto --norsrc -c -k --keepParent CodexBar.app "$ZIP"
+          shasum -a 256 "$ZIP" > "$ZIP.sha256"
+          echo "name=$ZIP" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: CodexBar-${{ steps.ver.outputs.marketing }}
+          path: |
+            ${{ steps.zip.outputs.name }}
+            ${{ steps.zip.outputs.name }}.sha256
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: ${{ inputs.create_release }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="v${{ steps.ver.outputs.marketing }}-manual-${{ github.run_number }}"
+          gh release create "$TAG" \
+            "${{ steps.zip.outputs.name }}" \
+            "${{ steps.zip.outputs.name }}.sha256" \
+            --title "CodexBar ${{ steps.ver.outputs.marketing }} (unsigned, manual build)" \
+            --notes "Ad-hoc signed build from commit ${GITHUB_SHA::7}. First launch on macOS: right-click the app → Open → confirm. Or run: xattr -dr com.apple.quarantine /Applications/CodexBar.app"

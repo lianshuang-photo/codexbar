@@ -2,6 +2,8 @@
 
 > Every AI coding limit, in your menu bar.
 
+> **Note:** This repository is a personal fork of [steipete/CodexBar](https://github.com/steipete/CodexBar), used to build ad-hoc-signed releases for friends. All credit for the original app goes to Peter Steinberger and contributors. Distributed under the MIT License (see [LICENSE](LICENSE)).
+
 [![Latest release](https://img.shields.io/github/v/release/steipete/CodexBar?style=flat-square&color=0a0a0c)](https://github.com/steipete/CodexBar/releases/latest)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-0a0a0c?style=flat-square)](https://github.com/steipete/CodexBar/releases/latest)
 [![Homebrew](https://img.shields.io/badge/brew-steipete%2Ftap%2Fcodexbar-orange?style=flat-square)](https://github.com/steipete/homebrew-tap)
