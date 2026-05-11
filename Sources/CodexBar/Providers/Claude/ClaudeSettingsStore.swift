@@ -11,7 +11,6 @@ extension SettingsStore {
             let source: ProviderSourceMode? = switch newValue {
             case .auto: .auto
             case .oauth: .oauth
-            case .web: .web
             case .cli: .cli
             }
             self.updateProviderConfig(provider: .claude) { entry in
@@ -65,10 +64,10 @@ extension SettingsStore {
     private static func claudeUsageDataSource(from source: ProviderSourceMode?) -> ClaudeUsageDataSource {
         guard let source else { return .auto }
         switch source {
-        case .auto, .api:
+        case .auto, .api, .web:
+            // Legacy "web" preferences fall back to .auto since the web cookie
+            // path was removed for ToS reasons.
             return .auto
-        case .web:
-            return .web
         case .cli:
             return .cli
         case .oauth:

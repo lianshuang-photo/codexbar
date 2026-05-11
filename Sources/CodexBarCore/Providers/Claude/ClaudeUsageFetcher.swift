@@ -451,8 +451,6 @@ public struct ClaudeUsageFetcher: ClaudeUsageFetching, Sendable {
                 var snapshot = try await self.fetcher.loadViaOAuth(allowDelegatedRetry: true)
                 snapshot = await self.fetcher.applyWebExtrasIfNeeded(to: snapshot)
                 return snapshot
-            case .web:
-                return try await self.fetcher.loadViaWebAPI()
             case .cli:
                 do {
                     var snapshot = try await self.fetcher.loadViaPTY(model: model, timeout: 10)
@@ -492,18 +490,11 @@ public struct ClaudeUsageFetcher: ClaudeUsageFetching, Sendable {
         }
 
         private func makeAutoFetchPlan() async -> ClaudeFetchPlan {
-            let hasWebSession =
-                if let header = self.fetcher.manualCookieHeader {
-                    ClaudeWebAPIFetcher.hasSessionKey(cookieHeader: header)
-                } else {
-                    ClaudeWebAPIFetcher.hasSessionKey(browserDetection: self.fetcher.browserDetection)
-                }
             let hasCLI = ClaudeCLIResolver.isAvailable(environment: self.fetcher.environment)
             return ClaudeSourcePlanner.resolve(input: ClaudeSourcePlanningInput(
                 runtime: self.fetcher.runtime,
                 selectedDataSource: .auto,
                 webExtrasEnabled: self.fetcher.useWebExtras,
-                hasWebSession: hasWebSession,
                 hasCLI: hasCLI,
                 hasOAuthCredentials: ClaudeOAuthPlanningAvailability.isAvailable(
                     runtime: self.fetcher.runtime,
@@ -532,8 +523,6 @@ public struct ClaudeUsageFetcher: ClaudeUsageFetching, Sendable {
                 var snapshot = try await self.fetcher.loadViaOAuth(allowDelegatedRetry: true)
                 snapshot = await self.fetcher.applyWebExtrasIfNeeded(to: snapshot)
                 return snapshot
-            case .web:
-                return try await self.fetcher.loadViaWebAPI()
             case .cli:
                 var snapshot = try await self.fetcher.loadViaPTY(model: model, timeout: 10)
                 snapshot = await self.fetcher.applyWebExtrasIfNeeded(to: snapshot)
@@ -1071,45 +1060,11 @@ extension ClaudeUsageFetcher {
     }
 
     private func applyWebExtrasIfNeeded(to snapshot: ClaudeUsageSnapshot) async -> ClaudeUsageSnapshot {
-        guard self.useWebExtras, self.dataSource != .web else { return snapshot }
-        do {
-            let webData: ClaudeWebAPIFetcher.WebUsageData =
-                if let header = self.manualCookieHeader {
-                    try await ClaudeWebAPIFetcher.fetchUsage(
-                        cookieHeader: header,
-                        targetOrganizationID: self.webOrganizationID)
-                    { msg in
-                        Self.log.debug(msg)
-                    }
-                } else {
-                    try await ClaudeWebAPIFetcher.fetchUsage(
-                        browserDetection: self.browserDetection,
-                        targetOrganizationID: self.webOrganizationID)
-                    { msg in
-                        Self.log.debug(msg)
-                    }
-                }
-            // Only merge usage/cost extras; keep identity fields from the primary data source.
-            let mergedExtraRateWindows = snapshot.extraRateWindows.isEmpty ? webData.extraRateWindows : snapshot
-                .extraRateWindows
-            let mergedProviderCost = snapshot.providerCost ?? webData.extraUsageCost
-            if mergedProviderCost != snapshot.providerCost || mergedExtraRateWindows != snapshot.extraRateWindows {
-                return ClaudeUsageSnapshot(
-                    primary: snapshot.primary,
-                    secondary: snapshot.secondary,
-                    opus: snapshot.opus,
-                    extraRateWindows: mergedExtraRateWindows,
-                    providerCost: mergedProviderCost,
-                    updatedAt: snapshot.updatedAt,
-                    accountEmail: snapshot.accountEmail,
-                    accountOrganization: snapshot.accountOrganization,
-                    loginMethod: snapshot.loginMethod,
-                    rawText: snapshot.rawText)
-            }
-        } catch {
-            Self.log.debug("Claude web extras fetch failed: \(error.localizedDescription)")
-        }
-        return snapshot
+        // Web extras (overage spend, extra rate windows from claude.ai cookies) were
+        // removed alongside the Web cookie data source for ToS compliance. The
+        // useWebExtras flag is kept for backwards-compatible callers but no longer
+        // triggers any browser cookie or Keychain access.
+        snapshot
     }
 
     // MARK: - Process helpers
