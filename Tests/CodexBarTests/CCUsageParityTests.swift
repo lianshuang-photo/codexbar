@@ -2,13 +2,13 @@ import Foundation
 import Testing
 @testable import CodexBarCore
 
-/// Parity tests verifying that codexbar's local Claude and Codex usage scanners
-/// produce token / cost numbers that match the ccusage upstream CLI on the same
-/// fixtures. Tokens are compared exactly; cost is compared within a 0.01% band
-/// to absorb floating-point noise from pricing-table representations.
-///
-/// ccusage upstream version used to regenerate the golden files: 18.0.11
-/// (commands recorded inside each golden JSON file).
+// Parity tests verifying that codexbar's local Claude and Codex usage scanners
+// produce token / cost numbers that match the ccusage upstream CLI on the same
+// fixtures. Tokens are compared exactly; cost is compared within a 0.01% band
+// to absorb floating-point noise from pricing-table representations.
+//
+// ccusage upstream version used to regenerate the golden files: 18.0.11
+// (commands recorded inside each golden JSON file).
 struct CCUsageParityTests {
     private struct ClaudeGolden: Decodable {
         let ccusageVersion: String
@@ -166,8 +166,8 @@ struct CCUsageParityTests {
         return try JSONDecoder().decode(T.self, from: data)
     }
 
-    /// Parse YYYY-MM-DD into a Date positioned at noon UTC so that any local
-    /// timezone the host machine uses still resolves the same calendar day.
+    // Parse YYYY-MM-DD into a Date positioned at noon UTC so that any local
+    // timezone the host machine uses still resolves the same calendar day.
     private static func parseDayUTCNoon(_ key: String) throws -> Date {
         let parts = key.split(separator: "-")
         try #require(parts.count == 3, "invalid day key \(key)")
