@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 // Port of the network-fetched pricing table that `cherry-local.ts` calls
 // `PRICING_API`. cherry-local.ts pulls this from
