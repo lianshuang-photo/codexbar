@@ -114,7 +114,7 @@ struct CodexBarApp: App {
     /// `registerLocalUsageScanners` so the test target can exercise the same
     /// code the app launch path runs.
     static func _test_registerLocalUsageScanners() {
-        Self.registerLocalUsageScanners()
+        self.registerLocalUsageScanners()
     }
 
     /// Registers the ccusage-aligned LocalUsageScanner implementations so the
