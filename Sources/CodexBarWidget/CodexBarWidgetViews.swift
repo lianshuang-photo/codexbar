@@ -295,6 +295,7 @@ private struct ProviderSwitchChip: View {
         case .venice: "Venice"
         case .commandcode: "Command Code"
         case .stepfun: "StepFun"
+        case .cherryStudio: "Cherry"
         }
     }
 }
@@ -680,6 +681,8 @@ enum WidgetColors {
             Color(red: 0, green: 0, blue: 0)
         case .stepfun:
             Color(red: 255 / 255, green: 140 / 255, blue: 0 / 255) // StepFun orange
+        case .cherryStudio:
+            Color(red: 231 / 255, green: 57 / 255, blue: 65 / 255) // Cherry Studio red
         }
     }
 }
