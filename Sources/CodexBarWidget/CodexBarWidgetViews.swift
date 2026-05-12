@@ -263,6 +263,7 @@ private struct ProviderSwitchChip: View {
         case .antigravity: "Anti"
         case .cursor: "Cursor"
         case .opencode: "OpenCode"
+        case .openclaw: "OpenClaw"
         case .opencodego: "OpenCode Go"
         case .alibaba: "Alibaba"
         case .zai: "z.ai"
@@ -616,6 +617,8 @@ enum WidgetColors {
             Color(red: 0 / 255, green: 191 / 255, blue: 165 / 255) // #00BFA5 - Cursor teal
         case .opencode:
             Color(red: 59 / 255, green: 130 / 255, blue: 246 / 255)
+        case .openclaw:
+            Color(red: 217 / 255, green: 119 / 255, blue: 87 / 255)
         case .opencodego:
             Color(red: 59 / 255, green: 130 / 255, blue: 246 / 255)
         case .alibaba:

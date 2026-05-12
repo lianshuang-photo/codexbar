@@ -2,6 +2,7 @@ import CodexBarCore
 import Foundation
 import Testing
 
+@Suite(.serialized)
 struct LocalUsageScannerTests {
     @Test
     func `registry resolve returns registered scanner`() {

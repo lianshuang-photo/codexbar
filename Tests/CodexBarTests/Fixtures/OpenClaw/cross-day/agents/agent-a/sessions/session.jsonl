@@ -1,0 +1,5 @@
+{"type":"message","timestamp":"2026-04-20T23:30:00.000Z","message":{"role":"assistant","model":"openai/gpt-5","usage":{"input":1000,"output":500,"totalTokens":1500,"cost":{"total":0.0125}}}}
+{"type":"message","timestamp":"2026-04-21T00:30:00.000Z","message":{"role":"assistant","model":"openai/gpt-5","usage":{"input":2000,"output":1000,"totalTokens":3000,"cost":{"total":0.025}}}}
+{"type":"message","timestamp":"2026-04-22T08:00:00.000Z","message":{"role":"assistant","model":"openai/gpt-5","usage":{"input":500,"output":200,"totalTokens":700,"cost":{"total":0.0}}}}
+not a json line, should be skipped
+{"this":"is malformed json but valid object","type":"message"}
