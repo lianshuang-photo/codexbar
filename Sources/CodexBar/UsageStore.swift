@@ -1295,7 +1295,13 @@ extension UsageStore {
     }
 
     private func refreshTokenUsage(_ provider: UsageProvider, force: Bool) async {
-        guard provider == .codex || provider == .claude || provider == .vertexai else {
+        // Group C extends token-snapshot refresh to the local-only ccusage
+        // providers in addition to the legacy codex/claude/vertexai paths;
+        // CostUsageFetcher resolves them through LocalUsageScannerRegistry.
+        let isTokenSnapshotProvider = provider == .codex || provider == .claude
+            || provider == .vertexai || provider == .opencode
+            || provider == .cherryStudio || provider == .openclaw
+        guard isTokenSnapshotProvider else {
             self.tokenSnapshots.removeValue(forKey: provider)
             self.tokenErrors[provider] = nil
             self.tokenFailureGates[provider]?.reset()
