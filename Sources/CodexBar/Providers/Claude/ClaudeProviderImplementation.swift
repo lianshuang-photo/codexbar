@@ -58,7 +58,6 @@ struct ClaudeProviderImplementation: ProviderImplementation {
         switch context.settings.claudeUsageDataSource {
         case .auto: .auto
         case .oauth: .oauth
-        case .web: .web
         case .cli: .cli
         }
     }

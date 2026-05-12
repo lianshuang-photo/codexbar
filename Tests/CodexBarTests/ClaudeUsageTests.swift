@@ -643,28 +643,7 @@ struct ClaudeUsageTests {
         return String(data: data, encoding: .utf8) ?? ""
     }
 
-    // MARK: - Web API tests
-
-    @Test
-    func `live claude fetch web API`() async throws {
-        // Set LIVE_CLAUDE_WEB_FETCH=1 to run this test with real browser cookies
-        guard ProcessInfo.processInfo.environment["LIVE_CLAUDE_WEB_FETCH"] == "1" else {
-            return
-        }
-        let fetcher = ClaudeUsageFetcher(browserDetection: BrowserDetection(cacheTTL: 0), dataSource: .web)
-        let snap = try await fetcher.loadLatestUsage()
-        let weeklyUsed = snap.secondary?.usedPercent ?? -1
-        let opusUsed = snap.opus?.usedPercent ?? -1
-        print(
-            """
-            Live Claude usage (Web API):
-            session used \(snap.primary.usedPercent)%
-            week used \(weeklyUsed)%
-            opus \(opusUsed)%
-            login method: \(snap.loginMethod ?? "nil")
-            """)
-        #expect(snap.primary.usedPercent >= 0)
-    }
+    // Web API live tests removed alongside the Web cookie path (ToS compliance).
 
     @Test
     func `claude web API has session key check`() {
@@ -867,17 +846,16 @@ struct ClaudeUsageTests {
 
     @Test
     func `claude usage fetcher init with data sources`() {
-        // Verify we can create fetchers with both configurations
+        // Verify we can create fetchers with each remaining configuration.
         let browserDetection = BrowserDetection(cacheTTL: 0)
         let defaultFetcher = ClaudeUsageFetcher(browserDetection: browserDetection)
-        let webFetcher = ClaudeUsageFetcher(browserDetection: browserDetection, dataSource: .web)
+        let oauthFetcher = ClaudeUsageFetcher(browserDetection: browserDetection, dataSource: .oauth)
         let cliFetcher = ClaudeUsageFetcher(browserDetection: browserDetection, dataSource: .cli)
-        // Both should be valid instances (no crashes)
         let defaultVersion = defaultFetcher.detectVersion()
-        let webVersion = webFetcher.detectVersion()
+        let oauthVersion = oauthFetcher.detectVersion()
         let cliVersion = cliFetcher.detectVersion()
         #expect(defaultVersion?.isEmpty != true)
-        #expect(webVersion?.isEmpty != true)
+        #expect(oauthVersion?.isEmpty != true)
         #expect(cliVersion?.isEmpty != true)
     }
 }
@@ -1184,76 +1162,6 @@ struct ClaudeAutoFetcherCharacterizationTests {
     }
 
     @Test
-    func `CLI runtime auto prefers web before CLI when OAuth unavailable`() async throws {
-        let cliLogURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("claude-auto-cli-runtime-web-log-\(UUID().uuidString).txt")
-        let log = InvocationLog(url: cliLogURL)
-        let fakeCLI = try Self.makeFakeClaudeCLI(logURL: cliLogURL)
-        let fetcher = ClaudeUsageFetcher(
-            browserDetection: BrowserDetection(cacheTTL: 0),
-            environment: ["CLAUDE_CLI_PATH": fakeCLI.path],
-            runtime: .cli,
-            dataSource: .auto,
-            manualCookieHeader: "sessionKey=sk-ant-session-token")
-
-        try await self.withClaudeCLIPath(fakeCLI.path) {
-            try await self.withNoOAuthCredentials {
-                try await self.withClaudeWebStub(handler: { request in
-                    let url = try #require(request.url)
-                    switch url.path {
-                    case "/api/organizations":
-                        return Self.makeJSONResponse(
-                            url: url,
-                            body: #"[{"uuid":"org-123","name":"Test Org","capabilities":["chat"]}]"#)
-                    case "/api/organizations/org-123/usage":
-                        let body = """
-                        {
-                          "five_hour": { "utilization": 11, "resets_at": "2025-12-23T16:00:00.000Z" },
-                          "seven_day": { "utilization": 22, "resets_at": "2025-12-29T23:00:00.000Z" },
-                          "seven_day_opus": { "utilization": 33 }
-                        }
-                        """
-                        return Self.makeJSONResponse(url: url, body: body)
-                    case "/api/account":
-                        let body = """
-                        {
-                          "email_address": "web@example.com",
-                          "memberships": [
-                            {
-                              "organization": {
-                                "uuid": "org-123",
-                                "name": "Test Org",
-                                "rate_limit_tier": "claude_max",
-                                "billing_type": "stripe"
-                              }
-                            }
-                          ]
-                        }
-                        """
-                        return Self.makeJSONResponse(url: url, body: body)
-                    case "/api/organizations/org-123/overage_spend_limit":
-                        let body = """
-                        {"monthly_credit_limit":5000,"currency":"USD","used_credits":1200,"is_enabled":true}
-                        """
-                        return Self.makeJSONResponse(url: url, body: body)
-                    default:
-                        return Self.makeJSONResponse(url: url, body: "{}", statusCode: 404)
-                    }
-                }, operation: {
-                    let snapshot = try await fetcher.loadLatestUsage(model: "sonnet")
-
-                    #expect(snapshot.primary.usedPercent == 11)
-                    #expect(snapshot.secondary?.usedPercent == 22)
-                    #expect(snapshot.opus?.usedPercent == 33)
-                    #expect(snapshot.accountEmail == "web@example.com")
-                    #expect(snapshot.loginMethod == "Claude Max")
-                    #expect(log.contents().isEmpty)
-                })
-            }
-        }
-    }
-
-    @Test
     func `app runtime auto fails deterministically when planner has no executable steps`() async {
         let fetcher = ClaudeUsageFetcher(
             browserDetection: BrowserDetection(cacheTTL: 0),
@@ -1329,75 +1237,7 @@ final class ClaudeAutoFetcherStubURLProtocol: URLProtocol {
     override func stopLoading() {}
 }
 
-extension ClaudeAutoFetcherCharacterizationTests {
-    @Test
-    func `web fetcher uses configured target organization`() async throws {
-        let fetcher = ClaudeUsageFetcher(
-            browserDetection: BrowserDetection(cacheTTL: 0),
-            dataSource: .web,
-            manualCookieHeader: "sessionKey=sk-ant-session-token",
-            webOrganizationID: "org-team")
-
-        try await self.withClaudeWebStub(handler: { request in
-            let url = try #require(request.url)
-            switch url.path {
-            case "/api/organizations":
-                let body = """
-                [
-                  { "uuid": "org-personal", "name": "Personal", "capabilities": ["chat"] },
-                  { "uuid": "org-team", "name": "Team Org", "capabilities": ["chat"] }
-                ]
-                """
-                return Self.makeJSONResponse(url: url, body: body)
-            case "/api/organizations/org-team/usage":
-                let body = """
-                {
-                  "five_hour": { "utilization": 14, "resets_at": "2025-12-23T16:00:00.000Z" },
-                  "seven_day": { "utilization": 28, "resets_at": "2025-12-29T23:00:00.000Z" }
-                }
-                """
-                return Self.makeJSONResponse(url: url, body: body)
-            case "/api/account":
-                let body = """
-                {
-                  "email_address": "linked@example.com",
-                  "memberships": [
-                    {
-                      "organization": {
-                        "uuid": "org-personal",
-                        "name": "Personal",
-                        "rate_limit_tier": "claude_max",
-                        "billing_type": "stripe"
-                      }
-                    },
-                    {
-                      "organization": {
-                        "uuid": "org-team",
-                        "name": "Team Org",
-                        "rate_limit_tier": "enterprise",
-                        "billing_type": "invoice"
-                      }
-                    }
-                  ]
-                }
-                """
-                return Self.makeJSONResponse(url: url, body: body)
-            case "/api/organizations/org-team/overage_spend_limit":
-                return Self.makeJSONResponse(url: url, body: "{}", statusCode: 404)
-            default:
-                return Self.makeJSONResponse(url: url, body: "{}", statusCode: 404)
-            }
-        }, operation: {
-            let snapshot = try await fetcher.loadLatestUsage(model: "sonnet")
-
-            #expect(snapshot.primary.usedPercent == 14)
-            #expect(snapshot.secondary?.usedPercent == 28)
-            #expect(snapshot.accountOrganization == "Team Org")
-            #expect(snapshot.accountEmail == "linked@example.com")
-            #expect(snapshot.loginMethod == "Claude Enterprise")
-        })
-    }
-}
+// Web fetcher org-targeting test removed alongside the Web cookie path (ToS compliance).
 
 extension ClaudeUsageTests {
     @Test
