@@ -570,7 +570,14 @@ struct ProvidersPane: View {
             dashboardError = codexProjection.userFacingErrors.dashboard
             tokenSnapshot = self.store.tokenSnapshot(for: provider)
             tokenError = self.store.tokenError(for: provider)
-        } else if provider == .claude || provider == .vertexai {
+        } else if provider == .claude || provider == .vertexai
+            || provider == .opencode || provider == .cherryStudio || provider == .openclaw
+        {
+            // ccusage-aligned providers all surface tokenSnapshot via the
+            // CostUsageFetcher → LocalUsageScannerRegistry path that Group C1
+            // wired up. claude/vertexai also have plan windows; the three
+            // local-only providers (opencode/cherrystudio/openclaw) rely on
+            // this snapshot as their primary display.
             credits = nil
             creditsError = nil
             dashboard = nil

@@ -42,7 +42,14 @@ public struct CostUsageFetcher: Sendable {
         piScannerOptions overridePiScannerOptions: PiSessionCostScanner
             .Options? = nil) async throws -> CostUsageTokenSnapshot
     {
-        guard provider == .codex || provider == .claude || provider == .vertexai else {
+        // codex/claude/vertexai keep their existing path through the
+        // legacy CostUsageScanner switch + PiSession merge. The Group C
+        // additions (opencode / cherryStudio / openclaw) go through the
+        // LocalUsageScannerRegistry the app registers at launch, so they
+        // need no special handling here beyond pricing refresh.
+        let isLegacyProvider = provider == .codex || provider == .claude || provider == .vertexai
+        let isRegistryProvider = provider == .opencode || provider == .cherryStudio || provider == .openclaw
+        guard isLegacyProvider || isRegistryProvider else {
             throw CostUsageError.unsupportedProvider(provider)
         }
 
@@ -54,6 +61,9 @@ public struct CostUsageFetcher: Sendable {
         if provider == .codex || provider == .claude {
             await ModelsDevPricingPipeline.refreshIfNeeded(now: now, cacheRoot: options.cacheRoot)
         }
+        if provider == .cherryStudio {
+            await CherryInPricingPipeline.refreshIfNeeded(now: now, cacheRoot: options.cacheRoot)
+        }
 
         if provider == .vertexai {
             options.claudeLogProviderFilter = allowVertexClaudeFallback ? .all : .vertexAIOnly
@@ -63,26 +73,44 @@ public struct CostUsageFetcher: Sendable {
         if forceRefresh {
             options.refreshMinIntervalSeconds = 0
         }
-        var daily = CostUsageScanner.loadDailyReport(
-            provider: provider,
-            since: since,
-            until: until,
-            now: now,
-            options: options)
 
-        if provider == .vertexai,
-           !allowVertexClaudeFallback,
-           options.claudeLogProviderFilter == .vertexAIOnly,
-           daily.data.isEmpty
-        {
-            var fallback = options
-            fallback.claudeLogProviderFilter = .all
+        var daily: CostUsageDailyReport
+        if isLegacyProvider {
             daily = CostUsageScanner.loadDailyReport(
                 provider: provider,
                 since: since,
                 until: until,
                 now: now,
-                options: fallback)
+                options: options)
+
+            if provider == .vertexai,
+               !allowVertexClaudeFallback,
+               options.claudeLogProviderFilter == .vertexAIOnly,
+               daily.data.isEmpty
+            {
+                var fallback = options
+                fallback.claudeLogProviderFilter = .all
+                daily = CostUsageScanner.loadDailyReport(
+                    provider: provider,
+                    since: since,
+                    until: until,
+                    now: now,
+                    options: fallback)
+            }
+        } else {
+            // opencode / cherryStudio / openclaw — registered scanners.
+            var registryOptions = LocalUsageScanOptions()
+            registryOptions.cacheRoot = options.cacheRoot
+            registryOptions.codexSessionsRoot = options.codexSessionsRoot
+            registryOptions.claudeProjectsRoots = options.claudeProjectsRoots
+            registryOptions.refreshMinIntervalSeconds = forceRefresh ? 0 : options.refreshMinIntervalSeconds
+            registryOptions.forceRescan = options.forceRescan
+            daily = LocalUsageScannerRegistry.loadDailyReport(
+                provider: provider,
+                since: since,
+                until: until,
+                now: now,
+                options: registryOptions)
         }
 
         if provider == .codex || provider == .claude {
