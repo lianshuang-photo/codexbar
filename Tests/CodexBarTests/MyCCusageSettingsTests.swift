@@ -237,7 +237,10 @@ struct MyCCusageSettingsTests {
             environmentBase: ["PATH": "", "SHELL": "/bin/false"],
             myCCusageConfigStore: MyCCusageConfigStore(configURL: env.configURL),
             myCCusageStatsClient: MyCCusageStatsClient(session: session),
-            myCCusageSyncRunner: MyCCusageSyncRunner(binaryURL: syncURL))
+            myCCusageSyncRunner: MyCCusageSyncRunner(binaryURL: syncURL),
+            myCCusageUploader: MyCCusageUploader(
+                transport: MyCCusageStubUploadTransport(),
+                retryBaseDelay: 0))
         store.myCCusagePostSyncPollInterval = 0
         store.myCCusagePostSyncPollAttempts = 3
 
@@ -332,4 +335,15 @@ final class MyCCusagePollingStatsStubURLProtocol: URLProtocol {
     }
 
     override func stopLoading() {}
+}
+
+struct MyCCusageStubUploadTransport: MyCCusageUploadTransport {
+    func data(for request: URLRequest, body _: Data) async throws -> (Data, URLResponse) {
+        let response = HTTPURLResponse(
+            url: request.url!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil)!
+        return (Data(#"{"success":true,"processed":1,"results":[]}"#.utf8), response)
+    }
 }

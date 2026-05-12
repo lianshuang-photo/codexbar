@@ -67,7 +67,7 @@ extension UsageStore {
 
     func syncMyCCusageNow(didStart: (@MainActor @Sendable () -> Void)? = nil) async {
         guard !self.myCCusageSyncInFlight else { return }
-        guard self.myCCusageConfig != nil else {
+        guard let config = self.myCCusageConfig else {
             self.myCCusageLastError = "MyCCusage is not configured."
             return
         }
@@ -76,23 +76,113 @@ extension UsageStore {
         didStart?()
         await self.refreshMyCCusageLeaderboard()
         let preSyncLeaderboard = self.myCCusageLeaderboard
-        let runner = self.myCCusageSyncRunner
-        let environment = self.environmentBase
-        let result = await Task.detached(priority: .utility) {
-            runner.sync(environment: environment)
-        }.value
-        if result.succeeded {
+
+        let uploadError = await self.uploadMyCCusageThroughSwift(config: config)
+        if uploadError == nil {
             self.myCCusageLastSyncAt = Date()
             await self.refreshMyCCusageLeaderboardAfterSync(previous: preSyncLeaderboard)
         } else {
-            self.myCCusageLastError = result.output.isEmpty
-                ? "ccusage-cherry-collector sync failed with exit code \(result.exitCode)."
-                : result.output
+            self.myCCusageLastError = uploadError
             await self.refreshMyCCusageLeaderboard()
         }
         self.myCCusageSyncInFlight = false
-        if let interval = self.myCCusageConfig.flatMap({ Self.myCCusageIntervalSeconds(for: $0.schedule) }) {
+        if let interval = Self.myCCusageIntervalSeconds(for: config.schedule) {
             self.myCCusageNextSyncAt = Date().addingTimeInterval(interval)
+        }
+    }
+
+    /// Swift-native replacement for the legacy `ccusage-cherry-collector sync`
+    /// subprocess path. Iterates the configured agent types, scans local
+    /// usage via the registered LocalUsageScanners, and POSTs one UsageData
+    /// payload per agent to the configured endpoint. Returns a human-readable
+    /// error description on failure, or `nil` on success.
+    func uploadMyCCusageThroughSwift(config: MyCCusageConfig) async -> String? {
+        guard let endpoint = URL(string: config.endpoint) else {
+            return "MyCCusage endpoint is not a valid URL."
+        }
+        let deviceId = MyCCusageDeviceID.resolve(persisted: config)
+        let deviceName = Self.nonEmpty(config.deviceName) ?? MyCCusageDeviceID.systemHostname()
+        let displayName = Self.nonEmpty(config.displayName)
+        let now = Date()
+        let until = now
+        let since = Calendar.current.date(byAdding: .day, value: -29, to: now) ?? now
+
+        var errors: [String] = []
+        for agent in config.agentTypes {
+            guard let provider = Self.usageProvider(for: agent) else { continue }
+            let report = await self.loadCcusageReport(
+                provider: provider,
+                since: since,
+                until: until,
+                now: now)
+            let payload = MyCCusageUploadPayloadBuilder.buildPayload(
+                agentType: agent,
+                report: report,
+                deviceId: deviceId,
+                deviceName: deviceName,
+                displayName: displayName)
+            do {
+                _ = try await self.myCCusageUploader.upload(
+                    payload: payload,
+                    endpoint: endpoint,
+                    apiKey: config.apiKey,
+                    maxRetries: config.maxRetries)
+            } catch let error as MyCCusageUploadError {
+                errors.append("\(agent.label): \(Self.describe(uploadError: error))")
+            } catch {
+                errors.append("\(agent.label): \(error.localizedDescription)")
+            }
+        }
+        return errors.isEmpty ? nil : errors.joined(separator: " · ")
+    }
+
+    private func loadCcusageReport(
+        provider: UsageProvider,
+        since: Date,
+        until: Date,
+        now: Date) async -> CostUsageDailyReport
+    {
+        // Cherry Studio specifically needs its remote pricing cache primed
+        // before the scanner runs; the other providers either ship their
+        // own pricing tables or are refreshed elsewhere in the app lifecycle.
+        if provider == .cherryStudio {
+            await CherryInPricingPipeline.refreshIfNeeded(now: now)
+        }
+        return LocalUsageScannerRegistry.loadDailyReport(
+            provider: provider,
+            since: since,
+            until: until,
+            now: now)
+    }
+
+    private static func nonEmpty(_ value: String?) -> String? {
+        guard let value, !value.isEmpty else { return nil }
+        return value
+    }
+
+    private static func usageProvider(for agent: MyCCusageAgentType) -> UsageProvider? {
+        switch agent {
+        case .claudeCode: .claude
+        case .codex: .codex
+        case .opencode: .opencode
+        case .cherryStudio: .cherryStudio
+        case .openclaw: .openclaw
+        }
+    }
+
+    private static func describe(uploadError: MyCCusageUploadError) -> String {
+        switch uploadError {
+        case .invalidResponse:
+            return "invalid HTTP response"
+        case let .unauthorized(status, message):
+            return "authentication failed (HTTP \(status)\(message.map { ": \($0)" } ?? ""))"
+        case let .retriesExhausted(status, message):
+            let s = status.map { "HTTP \($0)" } ?? "network error"
+            return "upload retries exhausted (\(s)\(message.map { ": \($0)" } ?? ""))"
+        case .encodingFailed:
+            return "failed to encode payload"
+        case let .recordErrors(records):
+            return "record errors: \(records.joined(separator: ", "))"
         }
     }
 
