@@ -50,16 +50,24 @@ struct MyCCusageUploadPayloadBuilderTests {
         let entries = [
             CostUsageDailyReport.Entry(
                 date: "2026-05-10",
-                inputTokens: 1, outputTokens: 2,
-                cacheReadTokens: 0, cacheCreationTokens: 0,
-                totalTokens: 3, costUSD: 0.1,
-                modelsUsed: ["m"], modelBreakdowns: nil),
+                inputTokens: 1,
+                outputTokens: 2,
+                cacheReadTokens: 0,
+                cacheCreationTokens: 0,
+                totalTokens: 3,
+                costUSD: 0.1,
+                modelsUsed: ["m"],
+                modelBreakdowns: nil),
             CostUsageDailyReport.Entry(
                 date: "2026-05-11",
-                inputTokens: 4, outputTokens: 8,
-                cacheReadTokens: 1, cacheCreationTokens: 2,
-                totalTokens: 15, costUSD: 0.2,
-                modelsUsed: ["m"], modelBreakdowns: nil),
+                inputTokens: 4,
+                outputTokens: 8,
+                cacheReadTokens: 1,
+                cacheCreationTokens: 2,
+                totalTokens: 15,
+                costUSD: 0.2,
+                modelsUsed: ["m"],
+                modelBreakdowns: nil),
         ]
         let report = CostUsageDailyReport(data: entries, summary: nil)
         let payload = MyCCusageUploadPayloadBuilder.buildPayload(
@@ -119,14 +127,21 @@ struct MyCCusageUploaderTests {
     private static func samplePayload() -> MyCCusageUsageDataPayload {
         MyCCusageUploadPayloadBuilder.buildPayload(
             agentType: .codex,
-            report: CostUsageDailyReport(data: [
-                CostUsageDailyReport.Entry(
-                    date: "2026-05-12",
-                    inputTokens: 1, outputTokens: 2,
-                    totalTokens: 3, costUSD: 0.1,
-                    modelsUsed: ["m"], modelBreakdowns: nil),
-            ], summary: nil),
-            deviceId: "did", deviceName: "name", displayName: nil)
+            report: CostUsageDailyReport(
+                data: [
+                    CostUsageDailyReport.Entry(
+                        date: "2026-05-12",
+                        inputTokens: 1,
+                        outputTokens: 2,
+                        totalTokens: 3,
+                        costUSD: 0.1,
+                        modelsUsed: ["m"],
+                        modelBreakdowns: nil),
+                ],
+                summary: nil),
+            deviceId: "did",
+            deviceName: "name",
+            displayName: nil)
     }
 
     @Test
