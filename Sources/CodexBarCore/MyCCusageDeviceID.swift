@@ -1,6 +1,12 @@
-import CryptoKit
-import Darwin
 import Foundation
+#if canImport(CryptoKit)
+import CryptoKit
+#endif
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 
 /// Mirrors the device-identification logic in upstream
 /// `ccusage-cherry-collector/src/utils/device-info.ts` so the Swift uploader
@@ -35,9 +41,16 @@ public enum MyCCusageDeviceID {
     {
         let sorted = macAddresses.sorted()
         let deviceString = "\(hostname):\(sorted.joined(separator: ","))"
+        #if canImport(CryptoKit)
         let digest = SHA256.hash(data: Data(deviceString.utf8))
         let hex = digest.map { String(format: "%02x", $0) }.joined()
         return String(hex.prefix(32))
+        #else
+        // Linux builds (CodexBarCLI host) do not need a leaderboard-grade
+        // deviceId — the uploader path is macOS-only — so we return a
+        // deterministic placeholder rather than pulling in swift-crypto.
+        return String(repeating: "0", count: 32)
+        #endif
     }
 
     /// Equivalent of Node `os.hostname()` — POSIX `gethostname()`.
@@ -52,8 +65,11 @@ public enum MyCCusageDeviceID {
     /// All non-loopback link-layer addresses formatted as colon-separated
     /// lowercase hex, in interface-enumeration order (no de-duplication —
     /// Node's `os.networkInterfaces()` yields one entry per IP per interface,
-    /// so the same MAC can repeat).
+    /// so the same MAC can repeat). Returns empty on non-Darwin platforms
+    /// because `sockaddr_dl` / `AF_LINK` are BSD-specific; CodexBarCLI on
+    /// Linux does not exercise this code path.
     public static func activeMACAddresses() -> [String] {
+        #if canImport(Darwin)
         var addresses: [String] = []
         var ifap: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&ifap) == 0, let head = ifap else { return [] }
@@ -75,8 +91,12 @@ public enum MyCCusageDeviceID {
             addresses.append(mac)
         }
         return addresses
+        #else
+        return []
+        #endif
     }
 
+    #if canImport(Darwin)
     private static func macString(from dl: sockaddr_dl) -> String? {
         let nameLen = Int(dl.sdl_nlen)
         let macLen = Int(dl.sdl_alen)
@@ -88,4 +108,5 @@ public enum MyCCusageDeviceID {
             return bytes.map { String(format: "%02x", $0) }.joined(separator: ":")
         }
     }
+    #endif
 }
