@@ -227,7 +227,12 @@ struct CherryInPricingPipelineTests {
           "pricing_version": "pipeline-1",
           "group_ratio": {"default": 1.0},
           "data": [
-            {"model_name": "anthropic/claude-sonnet-4.5", "model_ratio": 3, "completion_ratio": 5, "enable_groups": ["default"]}
+            {
+              "model_name": "anthropic/claude-sonnet-4.5",
+              "model_ratio": 3,
+              "completion_ratio": 5,
+              "enable_groups": ["default"]
+            }
           ]
         }
         """#
