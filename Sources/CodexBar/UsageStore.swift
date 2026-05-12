@@ -245,6 +245,7 @@ final class UsageStore {
     @ObservationIgnored let myCCusageConfigStore: MyCCusageConfigStore
     @ObservationIgnored let myCCusageStatsClient: MyCCusageStatsClient
     @ObservationIgnored let myCCusageSyncRunner: MyCCusageSyncRunner
+    @ObservationIgnored let myCCusageUploader: MyCCusageUploader
     @ObservationIgnored var myCCusagePostSyncPollInterval: TimeInterval = 2
     @ObservationIgnored var myCCusagePostSyncPollAttempts = 8
 
@@ -262,7 +263,8 @@ final class UsageStore {
         environmentBase: [String: String] = ProcessInfo.processInfo.environment,
         myCCusageConfigStore: MyCCusageConfigStore = MyCCusageConfigStore(),
         myCCusageStatsClient: MyCCusageStatsClient = MyCCusageStatsClient(),
-        myCCusageSyncRunner: MyCCusageSyncRunner = MyCCusageSyncRunner())
+        myCCusageSyncRunner: MyCCusageSyncRunner = MyCCusageSyncRunner(),
+        myCCusageUploader: MyCCusageUploader = MyCCusageUploader())
     {
         self.codexFetcher = fetcher
         self.browserDetection = browserDetection
@@ -278,6 +280,7 @@ final class UsageStore {
         self.myCCusageConfigStore = myCCusageConfigStore
         self.myCCusageStatsClient = myCCusageStatsClient
         self.myCCusageSyncRunner = myCCusageSyncRunner
+        self.myCCusageUploader = myCCusageUploader
         self.planUtilizationPersistenceCoordinator = PlanUtilizationHistoryPersistenceCoordinator(
             store: planUtilizationHistoryStore)
         self.providerMetadata = registry.metadata
