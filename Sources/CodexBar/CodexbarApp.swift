@@ -41,6 +41,11 @@ struct CodexBarApp: App {
         KeychainAccessGate.isDisabled = UserDefaults.standard.bool(forKey: "debugDisableKeychainAccess")
         KeychainPromptCoordinator.install()
 
+        Self.registerLocalUsageScanners()
+        Task.detached(priority: .background) {
+            await CherryInPricingPipeline.refreshIfNeeded()
+        }
+
         let preferencesSelection = PreferencesSelection()
         let settings = SettingsStore()
         Self.applyLanguagePreference(from: settings)
@@ -103,6 +108,26 @@ struct CodexBarApp: App {
         self.preferencesSelection.tab = tab
         NSApp.activate(ignoringOtherApps: true)
         _ = NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+    }
+
+    /// Test hook for `LocalUsageScannerRegistrationTests` — wraps the private
+    /// `registerLocalUsageScanners` so the test target can exercise the same
+    /// code the app launch path runs.
+    static func _test_registerLocalUsageScanners() {
+        Self.registerLocalUsageScanners()
+    }
+
+    /// Registers the ccusage-aligned LocalUsageScanner implementations so the
+    /// menu card (Group C2) can resolve them by UsageProvider. Idempotent —
+    /// safe to call once at app launch. Vertex AI piggybacks on the Claude
+    /// adapter per docs/CLAUDE.md.
+    private static func registerLocalUsageScanners() {
+        LocalUsageScannerRegistry.register(ClaudeLocalUsageScanner(provider: .claude))
+        LocalUsageScannerRegistry.register(ClaudeLocalUsageScanner(provider: .vertexai))
+        LocalUsageScannerRegistry.register(CodexLocalUsageScanner())
+        LocalUsageScannerRegistry.register(OpenCodeLocalUsageScanner())
+        LocalUsageScannerRegistry.register(CherryStudioLocalUsageScanner())
+        LocalUsageScannerRegistry.register(OpenClawLocalUsageScanner())
     }
 
     private static func applyLanguagePreference(from settings: SettingsStore) {
