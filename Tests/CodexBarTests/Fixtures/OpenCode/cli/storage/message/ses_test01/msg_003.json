@@ -1,0 +1,21 @@
+{
+  "id": "msg_003",
+  "sessionID": "ses_test01",
+  "providerID": "openai",
+  "modelID": "gpt-5.1",
+  "time": {
+    "created": 1775390400000,
+    "completed": 1775390406000
+  },
+  "tokens": {
+    "input": 300,
+    "output": 600,
+    "reasoning": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    },
+    "total": 900
+  },
+  "cost": 0.003
+}

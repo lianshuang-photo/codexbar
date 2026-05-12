@@ -1,0 +1,13 @@
+{
+  "id": "msg_005_no_provider",
+  "sessionID": "ses_test01",
+  "modelID": "claude-sonnet-4-5",
+  "time": {
+    "created": 1775304000000
+  },
+  "tokens": {
+    "input": 100,
+    "output": 200,
+    "total": 300
+  }
+}
