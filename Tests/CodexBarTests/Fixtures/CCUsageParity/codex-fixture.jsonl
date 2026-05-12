@@ -1,0 +1,4 @@
+{"type":"session_meta","payload":{"session_id":"parity-codex-session","timestamp":"2025-10-15T12:00:00Z"}}
+{"type":"turn_context","timestamp":"2025-10-15T12:00:01Z","payload":{"model":"gpt-5"}}
+{"type":"event_msg","timestamp":"2025-10-15T12:00:02Z","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":1000,"cached_input_tokens":200,"output_tokens":500,"reasoning_output_tokens":0,"total_tokens":1500},"model":"gpt-5"}}}
+{"type":"event_msg","timestamp":"2025-10-15T12:30:00Z","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":2000,"cached_input_tokens":400,"output_tokens":800,"reasoning_output_tokens":0,"total_tokens":2800},"model":"gpt-5"}}}
