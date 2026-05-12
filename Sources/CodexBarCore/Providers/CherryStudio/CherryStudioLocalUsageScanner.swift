@@ -27,18 +27,33 @@ import SQLite3
 public struct CherryStudioLocalUsageScanner: LocalUsageScanner {
     public let provider: UsageProvider = .cherryStudio
     public let configuration: Configuration
+    /// Optional pricing catalog injected for tests. Production callers leave
+    /// this nil and let `loadDailyReport` pick up the on-disk cache populated
+    /// by `CherryInPricingPipeline.refreshIfNeeded`.
+    private let injectedPricingCatalog: CherryInPricingCatalog?
 
     public init(configuration: Configuration = .systemDefault()) {
         self.configuration = configuration
+        self.injectedPricingCatalog = nil
+    }
+
+    public init(
+        configuration: Configuration,
+        pricingCatalog: CherryInPricingCatalog?)
+    {
+        self.configuration = configuration
+        self.injectedPricingCatalog = pricingCatalog
     }
 
     public func loadDailyReport(
         since: Date,
         until: Date,
         now _: Date,
-        options _: LocalUsageScanOptions) -> CostUsageDailyReport
+        options: LocalUsageScanOptions) -> CostUsageDailyReport
     {
-        let rows = self.collectLocalRows()
+        let catalog = self.injectedPricingCatalog
+            ?? CherryInPricingPipeline.loadCachedCatalog(cacheRoot: options.cacheRoot)
+        let rows = self.collectLocalRows(pricing: catalog)
         let bundle = Self.buildUsageDataFromRows(rows)
         let filtered = self.filter(daily: bundle.daily, since: since, until: until)
         return Self.makeReport(from: filtered)
@@ -432,12 +447,18 @@ extension CherryStudioLocalUsageScanner {
         var provider: String
         var model: String
         var parts: UsageParts
-        /// TS pricing inputs flattened to scalars. In the SQLite agent-DB path
-        /// these are always 0 because no inline pricing was attached. They are
-        /// kept so the helper still mirrors TS `addGroupRow` exactly when the
-        /// IndexedDB path eventually lands.
+        /// Cherryin-resolved per-million rates. Non-zero when
+        /// `CherryInPricingPipeline.loadCachedCatalog` returns a hit for
+        /// (provider, model); otherwise both stay at 0 and addGroupRow falls
+        /// back to metaCost / direct cost / unknown.
         var inputRatePerMillion: Double = 0
         var outputRatePerMillion: Double = 0
+        /// When the rates above came from the cherryin catalog, these carry
+        /// the model_name + group the catalog matched, so the LocalRow that
+        /// leaves the scanner mirrors `costMode = "cherryin-pricing-api"`
+        /// from TS line 394.
+        var pricingModelOverride: String?
+        var pricingGroupOverride: String?
         var metaCost: Double?
         var isBillable: Bool
     }
@@ -451,6 +472,8 @@ extension CherryStudioLocalUsageScanner {
     {
         var cost: Double = 0
         var costMode = "none"
+        var pricingModel: String?
+        var pricingGroup: String?
         let inputRate = options.inputRatePerMillion
         let outputRate = options.outputRatePerMillion
 
@@ -463,7 +486,13 @@ extension CherryStudioLocalUsageScanner {
         } else if inputRate != 0 || outputRate != 0 {
             cost = (options.parts.input * inputRate + options.parts.output * outputRate)
                 / Self.priceTablePerMillionDivisor
-            costMode = "estimated"
+            if options.pricingModelOverride != nil {
+                costMode = "cherryin-pricing-api"
+                pricingModel = options.pricingModelOverride
+                pricingGroup = options.pricingGroupOverride
+            } else {
+                costMode = "estimated"
+            }
         } else {
             unknownPriceCount += 1
         }
@@ -479,6 +508,8 @@ extension CherryStudioLocalUsageScanner {
         row.output += options.parts.output
         row.total += options.parts.total
         row.cost += cost
+        if pricingModel != nil { row.pricingModel = pricingModel }
+        if pricingGroup != nil { row.pricingGroup = pricingGroup }
         group[key] = row
     }
 
@@ -552,7 +583,11 @@ extension CherryStudioLocalUsageScanner {
         var dedupKey: String = ""
     }
 
-    /// TS `summarizeRuntimeEvents` (line 843).
+    /// TS `summarizeRuntimeEvents` (line 843). Uses the static `PRICE_TABLE`
+    /// only — TS does NOT feed claude-runtime rows through
+    /// `applyCherryInPricing` (see TS line 1088 vs 1066). If those numbers
+    /// drift from cherryin's table for a specific model, treat it as a
+    /// separate PRICE_TABLE update, not as a cherryin pricing bug.
     static func summarizeRuntimeEvents(_ events: [RuntimeEvent]) -> [ClaudeRuntimeRow] {
         var grouped: [String: ClaudeRuntimeRow] = [:]
         for event in events {
@@ -685,7 +720,11 @@ extension CherryStudioLocalUsageScanner {
 
     #if canImport(SQLite3)
     /// TS `summarizeAgentDb` (line 780).
-    func summarizeAgentDb(appName: String, dbURL: URL) -> AgentSummary? {
+    func summarizeAgentDb(
+        appName: String,
+        dbURL: URL,
+        pricing: CherryInPricingCatalog?) -> AgentSummary?
+    {
         guard FileManager.default.fileExists(atPath: dbURL.path) else { return nil }
         var db: OpaquePointer?
         guard sqlite3_open_v2(dbURL.path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
@@ -791,11 +830,16 @@ extension CherryStudioLocalUsageScanner {
                 let d = Self.stableNumber(raw)
                 return d.isFinite ? d : nil
             }()
+            let resolved = pricing?.lookup(provider: providerVal, model: modelVal)
             let options = AddGroupOptions(
                 date: date,
                 provider: providerVal,
                 model: modelVal,
                 parts: parts,
+                inputRatePerMillion: resolved?.inputRatePerMillion ?? 0,
+                outputRatePerMillion: resolved?.outputRatePerMillion ?? 0,
+                pricingModelOverride: resolved?.pricingModel,
+                pricingGroupOverride: resolved?.pricingGroup,
                 metaCost: metaCost,
                 isBillable: isBillable)
             if isBillable {
@@ -834,7 +878,11 @@ extension CherryStudioLocalUsageScanner {
     /// Linux fallback — SQLite3 isn't part of upstream Swift's standard
     /// distribution. We skip the agent-DB path entirely; the JSONL pipeline
     /// is unaffected.
-    func summarizeAgentDb(appName _: String, dbURL _: URL) -> AgentSummary? {
+    func summarizeAgentDb(
+        appName _: String,
+        dbURL _: URL,
+        pricing _: CherryInPricingCatalog?) -> AgentSummary?
+    {
         nil
     }
     #endif
@@ -843,7 +891,7 @@ extension CherryStudioLocalUsageScanner {
 // MARK: - Per-app local-row collection (TS `readCherryStudioLocalUsage`, line 1031)
 
 extension CherryStudioLocalUsageScanner {
-    func collectLocalRows() -> [LocalRow] {
+    func collectLocalRows(pricing: CherryInPricingCatalog?) -> [LocalRow] {
         var rows: [LocalRow] = []
         for appName in self.configuration.appNames {
             // (1) IndexedDB — NOT PORTED in this PR. See file-top TODO.
@@ -851,7 +899,10 @@ extension CherryStudioLocalUsageScanner {
             for appDataDir in self.resolvedAppDataDirs(for: appName) {
                 for relPath in ["agents-enterprise.db", "Data/agents-enterprise.db", "Data/agents.db", "agents.db"] {
                     let dbURL = appDataDir.appendingPathComponent(relPath)
-                    guard let summary = self.summarizeAgentDb(appName: "\(appName):\(relPath)", dbURL: dbURL)
+                    guard let summary = self.summarizeAgentDb(
+                        appName: "\(appName):\(relPath)",
+                        dbURL: dbURL,
+                        pricing: pricing)
                     else { continue }
                     if summary.rows == 0 { continue }
                     for row in Self.sortedRows(summary.billable) {
@@ -874,6 +925,8 @@ extension CherryStudioLocalUsageScanner {
                 }
             }
             // (3) Claude runtime JSONL (TS line 1088 — uses `runtime.dedup.rows`).
+            // TS does NOT apply cherryin pricing here — runtime cost stays on
+            // the static PRICE_TABLE path.
             if let runtime = self.readClaudeRuntime(appName: appName) {
                 for row in runtime.dedupRows {
                     rows.append(LocalRow(
