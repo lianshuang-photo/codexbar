@@ -14,6 +14,7 @@ struct UsageProgressBar: View {
 
     let percent: Double
     let tint: Color
+    let gradientColors: [Color]
     let accessibilityLabel: String
     let pacePercent: Double?
     let paceOnTop: Bool
@@ -24,6 +25,7 @@ struct UsageProgressBar: View {
     init(
         percent: Double,
         tint: Color,
+        gradientColors: [Color] = [],
         accessibilityLabel: String,
         pacePercent: Double? = nil,
         paceOnTop: Bool = true,
@@ -31,6 +33,7 @@ struct UsageProgressBar: View {
     {
         self.percent = percent
         self.tint = tint
+        self.gradientColors = gradientColors
         self.accessibilityLabel = accessibilityLabel
         self.pacePercent = pacePercent
         self.paceOnTop = paceOnTop
@@ -72,9 +75,7 @@ struct UsageProgressBar: View {
             if fillWidth > 0 {
                 let fillRect = CGRect(x: 0, y: 0, width: min(fillWidth, size.width), height: size.height)
                 let fillPath = Path { p in p.addRoundedRect(in: fillRect, cornerSize: cornerSize) }
-                context.fill(
-                    fillPath,
-                    with: .color(MenuHighlightStyle.progressTint(self.isHighlighted, fallback: self.tint)))
+                context.fill(fillPath, with: self.fillShading(size: size))
             }
 
             if !markerPercents.isEmpty {
@@ -172,5 +173,15 @@ struct UsageProgressBar: View {
     private static func clampedPercent(_ value: Double?) -> Double {
         guard let value else { return 0 }
         return min(100, max(0, value))
+    }
+
+    private func fillShading(size: CGSize) -> GraphicsContext.Shading {
+        guard self.gradientColors.count >= 2 else {
+            return .color(MenuHighlightStyle.progressTint(self.isHighlighted, fallback: self.tint))
+        }
+        return .linearGradient(
+            Gradient(colors: self.gradientColors),
+            startPoint: .zero,
+            endPoint: CGPoint(x: size.width, y: size.height))
     }
 }

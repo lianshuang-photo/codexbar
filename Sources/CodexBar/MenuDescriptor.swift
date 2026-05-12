@@ -35,6 +35,7 @@ struct MenuDescriptor {
         case addAccount = "plus"
         case systemAccount = "person.crop.circle"
         case switchAccount = "key"
+        case sync = "arrow.triangle.2.circlepath"
         case openTerminal = "terminal"
         case loginToProvider = "arrow.right.square"
         case settings = "gearshape"
@@ -59,6 +60,7 @@ struct MenuDescriptor {
         case requestCodexSystemPromotion(UUID)
         case addProviderAccount(UsageProvider)
         case switchAccount(UsageProvider)
+        case syncMyCCusageNow
         case openTerminal(command: String)
         case loginToProvider(url: String)
         case settings
@@ -77,7 +79,8 @@ struct MenuDescriptor {
         managedCodexAccountCoordinator: ManagedCodexAccountCoordinator? = nil,
         codexAccountPromotionCoordinator: CodexAccountPromotionCoordinator? = nil,
         updateReady: Bool,
-        includeContextualActions: Bool = true) -> MenuDescriptor
+        includeContextualActions: Bool = true,
+        includeMyCCusageSection: Bool = true) -> MenuDescriptor
     {
         var sections: [Section] = []
 
@@ -113,6 +116,10 @@ struct MenuDescriptor {
             } else {
                 sections.append(Section(entries: [.text("No usage configured.", .secondary)]))
             }
+        }
+
+        if includeMyCCusageSection, let community = Self.myCCusageSection(store: store) {
+            sections.append(community)
         }
 
         if includeContextualActions {
@@ -430,6 +437,53 @@ struct MenuDescriptor {
         return Section(entries: entries)
     }
 
+    private static func myCCusageSection(store: UsageStore) -> Section? {
+        var entries: [Entry] = []
+        if let config = store.myCCusageConfig,
+           let uploadsLine = Self.myCCusageUploadsLine(config: config)
+        {
+            if let leaderboard = store.myCCusageLeaderboard {
+                entries.append(.text(leaderboard.menuLine, .secondary))
+            } else if let error = store.myCCusageLastError, !error.isEmpty {
+                entries.append(.text("Community: \(UsageFormatter.truncatedSingleLine(error, max: 96))", .secondary))
+            } else if !store.myCCusageCollectorStatus.isInstalled {
+                entries.append(.text("MyCCusage: collector not installed", .secondary))
+                entries.append(.action(
+                    "Install MyCCusage Collector...",
+                    .openTerminal(command: store.myCCusageCollectorStatus.installCommand)))
+            } else if store.myCCusageEnabled {
+                entries.append(.text("Community: no ranking data yet", .secondary))
+            } else {
+                entries.append(.text("MyCCusage: disabled", .secondary))
+            }
+            entries.append(.text(uploadsLine, .secondary))
+            entries.append(.action("Sync MyCCusage Now", .syncMyCCusageNow))
+            return Section(entries: entries)
+        }
+
+        entries.append(.text("MyCCusage: not configured", .secondary))
+        if store.myCCusageCollectorStatus.isInstalled {
+            entries.append(.action(
+                "Configure MyCCusage Collector...",
+                .openTerminal(command: "ccusage-cherry-collector config")))
+        } else {
+            entries.append(.action(
+                "Install MyCCusage Collector...",
+                .openTerminal(
+                    command: "\(store.myCCusageCollectorStatus.installCommand) && ccusage-cherry-collector config")))
+        }
+        return Section(entries: entries)
+    }
+
+    private static func myCCusageUploadsLine(config: MyCCusageConfig) -> String? {
+        let labels = config.agentTypes.map(\.label)
+        guard !labels.isEmpty else { return nil }
+        if config.agentTypes.contains(.cherryStudio) {
+            return "Uploads: \(labels.joined(separator: ", "))"
+        }
+        return "Uploads: \(labels.joined(separator: ", ")) - Cherry Studio off"
+    }
+
     private static func metaSection(updateReady: Bool) -> Section {
         var entries: [Entry] = []
         if updateReady {
@@ -553,6 +607,7 @@ extension MenuDescriptor.MenuAction {
         case .addCodexAccount, .addProviderAccount: MenuDescriptor.MenuActionSystemImage.addAccount.rawValue
         case .requestCodexSystemPromotion:
             nil
+        case .syncMyCCusageNow: MenuDescriptor.MenuActionSystemImage.sync.rawValue
         case .switchAccount: MenuDescriptor.MenuActionSystemImage.switchAccount.rawValue
         case .openTerminal: MenuDescriptor.MenuActionSystemImage.openTerminal.rawValue
         case .loginToProvider: MenuDescriptor.MenuActionSystemImage.loginToProvider.rawValue

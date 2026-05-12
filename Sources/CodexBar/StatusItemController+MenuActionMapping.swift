@@ -13,6 +13,7 @@ extension StatusItemController {
         case let .requestCodexSystemPromotion(managedAccountID):
             (#selector(self.requestCodexSystemPromotionFromMenu(_:)), managedAccountID.uuidString)
         case let .switchAccount(provider): (#selector(self.runSwitchAccount(_:)), provider.rawValue)
+        case .syncMyCCusageNow: (#selector(self.syncMyCCusageNow), nil)
         case let .openTerminal(command): (#selector(self.openTerminalCommand(_:)), command)
         case let .loginToProvider(url): (#selector(self.openLoginToProvider(_:)), url)
         case .settings: (#selector(self.showSettingsGeneral), nil)

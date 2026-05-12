@@ -142,6 +142,10 @@ struct GeneralPane: View {
                     if self.settings.quotaWarningNotificationsEnabled {
                         GlobalQuotaWarningSettingsView(settings: self.settings)
                     }
+
+                    Divider()
+
+                    self.myCCusageSettings
                 }
 
                 Divider()
@@ -209,4 +213,188 @@ struct GeneralPane: View {
             .font(.footnote)
             .foregroundStyle(.tertiary)
     }
+
+    private var myCCusageSettings: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Toggle(isOn: self.myCCusageEnabledBinding) {
+                    Text("Enable MyCCusage")
+                        .font(.body)
+                }
+                .toggleStyle(.checkbox)
+                .disabled(self.store.myCCusageConfig == nil)
+
+                Text("Uses ~/.ccusage-collector/config.json and runs ccusage-cherry-collector sync.")
+                    .font(.footnote)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let config = self.store.myCCusageConfig {
+                HStack(alignment: .center, spacing: 12) {
+                    Text("Endpoint")
+                        .frame(width: 110, alignment: .leading)
+                    TextField("https://ccusage.cherry-ai.com/api/usage-sync", text: self.myCCusageEndpointBinding)
+                        .textFieldStyle(.roundedBorder)
+                }
+
+                HStack(alignment: .center, spacing: 12) {
+                    Text("Display name")
+                        .frame(width: 110, alignment: .leading)
+                    TextField("Device display name", text: self.myCCusageDisplayNameBinding)
+                        .textFieldStyle(.roundedBorder)
+                }
+
+                HStack(alignment: .top, spacing: 12) {
+                    Text("Upload types")
+                        .frame(width: 110, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(MyCCusageAgentType.allCases, id: \.rawValue) { agent in
+                            Toggle(isOn: self.myCCusageAgentBinding(agent)) {
+                                Text(agent.label)
+                            }
+                            .toggleStyle(.checkbox)
+                        }
+                    }
+                }
+
+                HStack(alignment: .center, spacing: 12) {
+                    Text("Frequency")
+                        .frame(width: 110, alignment: .leading)
+                    Picker("MyCCusage upload frequency", selection: self.myCCusageScheduleBinding) {
+                        ForEach(MyCCusageScheduleOption.all, id: \.schedule) { option in
+                            Text(option.label).tag(option.schedule)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 220)
+                }
+
+                if let status = self.myCCusageStatusLine(config: config) {
+                    Text(status)
+                        .font(.footnote)
+                        .foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                HStack(spacing: 10) {
+                    Button("Sync MyCCusage Now") {
+                        Task { @MainActor in
+                            await self.store.syncMyCCusageNow()
+                        }
+                    }
+                    .disabled(!self.store.myCCusageEnabled || self.store.myCCusageSyncInFlight)
+
+                    if self.store.myCCusageSyncInFlight {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("MyCCusage collector is not configured.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Text("Install: \(self.store.myCCusageCollectorStatus.installCommand)")
+                        .font(.footnote.monospaced())
+                        .foregroundStyle(.tertiary)
+                    Text("Configure: ccusage-cherry-collector config")
+                        .font(.footnote.monospaced())
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        }
+    }
+
+    private var myCCusageEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { self.store.myCCusageEnabled },
+            set: { self.store.setMyCCusageEnabled($0) })
+    }
+
+    private var myCCusageEndpointBinding: Binding<String> {
+        Binding(
+            get: { self.store.myCCusageConfig?.endpoint ?? "" },
+            set: { value in
+                self.store.updateMyCCusageConfig { $0.endpoint = value }
+            })
+    }
+
+    private var myCCusageDisplayNameBinding: Binding<String> {
+        Binding(
+            get: { self.store.myCCusageConfig?.displayName ?? "" },
+            set: { value in
+                self.store.updateMyCCusageConfig {
+                    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                    $0.displayName = trimmed.isEmpty ? nil : trimmed
+                }
+            })
+    }
+
+    private var myCCusageScheduleBinding: Binding<String> {
+        Binding(
+            get: { self.store.myCCusageConfig?.schedule ?? "0 */4 * * *" },
+            set: { schedule in
+                let option = MyCCusageScheduleOption.all.first { $0.schedule == schedule }
+                self.store.updateMyCCusageConfig {
+                    $0.schedule = schedule
+                    $0.scheduleLabel = option?.label ?? schedule
+                }
+            })
+    }
+
+    private func myCCusageAgentBinding(_ agent: MyCCusageAgentType) -> Binding<Bool> {
+        Binding(
+            get: { self.store.myCCusageConfig?.agentTypes.contains(agent) ?? false },
+            set: { isEnabled in
+                self.store.updateMyCCusageConfig {
+                    var agents = $0.agentTypes
+                    if isEnabled {
+                        if !agents.contains(agent) { agents.append(agent) }
+                    } else {
+                        agents.removeAll { $0 == agent }
+                    }
+                    if agents.isEmpty {
+                        agents = [.claudeCode]
+                    }
+                    $0.agentTypes = agents
+                }
+            })
+    }
+
+    private func myCCusageStatusLine(config: MyCCusageConfig) -> String? {
+        var parts: [String] = []
+        if let version = self.store.myCCusageCollectorStatus.version {
+            parts.append("collector \(version)")
+        } else if !self.store.myCCusageCollectorStatus.isInstalled {
+            parts.append("collector not installed")
+        }
+        if let last = self.store.myCCusageLastSyncAt {
+            parts.append("last \(UsageFormatter.updatedString(from: last))")
+        }
+        if let next = self.store.myCCusageNextSyncAt {
+            parts.append("next \(UsageFormatter.updatedString(from: next))")
+        } else {
+            parts.append(config.scheduleLabel)
+        }
+        if let error = self.store.myCCusageLastError, !error.isEmpty {
+            parts.append("error: \(UsageFormatter.truncatedSingleLine(error, max: 100))")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+}
+
+private struct MyCCusageScheduleOption {
+    let schedule: String
+    let label: String
+
+    static let all: [MyCCusageScheduleOption] = [
+        MyCCusageScheduleOption(schedule: "*/30 * * * *", label: "Every 30 minutes"),
+        MyCCusageScheduleOption(schedule: "0 * * * *", label: "Every 1 hour"),
+        MyCCusageScheduleOption(schedule: "0 */2 * * *", label: "Every 2 hours"),
+        MyCCusageScheduleOption(schedule: "0 */4 * * *", label: "Every 4 hours"),
+        MyCCusageScheduleOption(schedule: "0 */8 * * *", label: "Every 8 hours"),
+        MyCCusageScheduleOption(schedule: "0 0 * * *", label: "Once daily"),
+    ]
 }

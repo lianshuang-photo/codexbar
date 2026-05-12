@@ -27,7 +27,7 @@ struct ProviderSidebarListView: View {
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
                                 .fill(
                                     self.selection == provider
-                                        ? Color(nsColor: .selectedContentBackgroundColor)
+                                        ? CodexBarOrangeTheme.selectionBackgroundColor
                                         : Color.clear)
                                 .padding(.horizontal, 4))
                         .contentShape(Rectangle())
@@ -108,6 +108,7 @@ private struct ProviderSidebarRowView: View {
                 .labelsHidden()
                 .toggleStyle(.checkbox)
                 .controlSize(.small)
+                .tint(CodexBarOrangeTheme.actionColor)
         }
         .contentShape(Rectangle())
         .padding(.vertical, 2)
