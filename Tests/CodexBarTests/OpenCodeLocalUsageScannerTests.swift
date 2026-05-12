@@ -98,10 +98,13 @@ struct OpenCodeLocalUsageScannerTests {
         let fixtureRoot = try Self.openCodeFixtureRoot()
         let dayA = Self.expectedDayKey(timestampMs: 1_775_304_000_000)
 
-        // Only day A in range (day B is later).
+        // Only day A in range — pick `until` 8 minutes after day A's first
+        // message timestamp so the dayKey lands on day A regardless of the
+        // local time zone. Day B's timestamp (~24h later) lands on the next
+        // dayKey in every timezone and must be filtered out.
         let report = OpenCodeLocalUsageScanner(dataRoot: fixtureRoot).loadDailyReport(
             since: Date(timeIntervalSince1970: 1_775_000_000),
-            until: Date(timeIntervalSince1970: 1_775_350_000),
+            until: Date(timeIntervalSince1970: 1_775_304_500),
             now: Date(timeIntervalSince1970: 1_776_000_000),
             options: LocalUsageScanOptions())
 
