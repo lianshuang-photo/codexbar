@@ -57,6 +57,14 @@ struct MyCCusageMenuTests {
             deviceId: "mine",
             agentTypes: [.claudeCode, .cherryStudio, .opencode])
         env.store.myCCusageEnabled = true
+        // Force installed status so the test does not depend on whether the
+        // host machine happens to have `ccusage-cherry-collector` on PATH.
+        // (review issue #3 — the runner currently sync-probes the binary at
+        // UsageStore.init, leaking env state into tests.)
+        env.store.myCCusageCollectorStatus = MyCCusageSyncStatus(
+            binaryURL: URL(fileURLWithPath: "/usr/local/bin/ccusage-cherry-collector"),
+            version: "1.0.4",
+            installCommand: MyCCusageSyncRunner.installCommand)
 
         let descriptor = MenuDescriptor.build(
             provider: nil,

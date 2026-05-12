@@ -10,6 +10,12 @@ public struct MyCCusageSyncStatus: Equatable, Sendable {
     public let version: String?
     public let installCommand: String
 
+    public init(binaryURL: URL?, version: String?, installCommand: String) {
+        self.binaryURL = binaryURL
+        self.version = version
+        self.installCommand = installCommand
+    }
+
     public var isInstalled: Bool {
         self.binaryURL != nil
     }
