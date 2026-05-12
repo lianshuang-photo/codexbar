@@ -14,6 +14,15 @@ extension UsageMenuCardView.Model {
         return Color(red: color.red, green: color.green, blue: color.blue)
     }
 
+    static func progressGradientColors(for provider: UsageProvider) -> [Color] {
+        guard provider == .codex else { return [] }
+        return [
+            Color(red: 0.12, green: 0.48, blue: 1.00),
+            Color(red: 0.33, green: 0.34, blue: 1.00),
+            Color(red: 0.58, green: 0.38, blue: 1.00),
+        ]
+    }
+
     static func resetText(
         for window: RateWindow,
         style: ResetTimeDisplayStyle,

@@ -108,6 +108,7 @@ struct UsageMenuCardView: View {
         let tokenUsage: TokenUsageSection?
         let placeholder: String?
         let progressColor: Color
+        let progressGradientColors: [Color]
     }
 
     let model: Model
@@ -129,20 +130,12 @@ struct UsageMenuCardView: View {
                 Divider()
             }
 
-            if self.model.metrics.isEmpty {
-                if !self.model.usageNotes.isEmpty {
-                    UsageNotesContent(notes: self.model.usageNotes)
-                } else if let placeholder = self.model.placeholder {
-                    Text(placeholder)
-                        .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
-                        .font(.subheadline)
-                }
-            } else {
-                let hasUsage = !self.model.metrics.isEmpty || !self.model.usageNotes.isEmpty
-                let hasCredits = self.model.creditsText != nil
-                let hasProviderCost = self.model.providerCost != nil
-                let hasCost = self.model.tokenUsage != nil || hasProviderCost
+            let hasUsage = !self.model.metrics.isEmpty || !self.model.usageNotes.isEmpty
+            let hasCredits = self.model.creditsText != nil
+            let hasProviderCost = self.model.providerCost != nil
+            let hasCost = self.model.tokenUsage != nil || hasProviderCost
 
+            if hasUsage || hasCredits || hasCost {
                 VStack(alignment: .leading, spacing: 12) {
                     if hasUsage {
                         VStack(alignment: .leading, spacing: 12) {
@@ -150,7 +143,8 @@ struct UsageMenuCardView: View {
                                 MetricRow(
                                     metric: metric,
                                     title: Self.popupMetricTitle(provider: self.model.provider, metric: metric),
-                                    progressColor: self.model.progressColor)
+                                    progressColor: self.model.progressColor,
+                                    progressGradientColors: self.model.progressGradientColors)
                             }
                             if !self.model.usageNotes.isEmpty {
                                 UsageNotesContent(notes: self.model.usageNotes)
@@ -166,7 +160,8 @@ struct UsageMenuCardView: View {
                             creditsRemaining: self.model.creditsRemaining,
                             hintText: self.model.creditsHintText,
                             hintCopyText: self.model.creditsHintCopyText,
-                            progressColor: self.model.progressColor)
+                            progressColor: self.model.progressColor,
+                            progressGradientColors: self.model.progressGradientColors)
                     }
                     if hasCredits, hasCost {
                         Divider()
@@ -174,7 +169,8 @@ struct UsageMenuCardView: View {
                     if let providerCost = self.model.providerCost {
                         ProviderCostContent(
                             section: providerCost,
-                            progressColor: self.model.progressColor)
+                            progressColor: self.model.progressColor,
+                            progressGradientColors: self.model.progressGradientColors)
                     }
                     if hasProviderCost, self.model.tokenUsage != nil {
                         Divider()
@@ -209,6 +205,10 @@ struct UsageMenuCardView: View {
                     }
                 }
                 .padding(.bottom, self.model.creditsText == nil ? 6 : 0)
+            } else if let placeholder = self.model.placeholder {
+                Text(placeholder)
+                    .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
+                    .font(.subheadline)
             }
         }
         .padding(.horizontal, 16)
@@ -327,6 +327,7 @@ private struct CopyIconButton: View {
 private struct ProviderCostContent: View {
     let section: UsageMenuCardView.Model.ProviderCostSection
     let progressColor: Color
+    let progressGradientColors: [Color]
     @Environment(\.menuItemHighlighted) private var isHighlighted
 
     var body: some View {
@@ -338,6 +339,7 @@ private struct ProviderCostContent: View {
                 UsageProgressBar(
                     percent: percentUsed,
                     tint: self.progressColor,
+                    gradientColors: self.progressGradientColors,
                     accessibilityLabel: "Extra usage spent")
             }
             HStack(alignment: .firstTextBaseline) {
@@ -358,6 +360,7 @@ private struct MetricRow: View {
     let metric: UsageMenuCardView.Model.Metric
     let title: String
     let progressColor: Color
+    let progressGradientColors: [Color]
     @Environment(\.menuItemHighlighted) private var isHighlighted
 
     var body: some View {
@@ -374,6 +377,7 @@ private struct MetricRow: View {
                 UsageProgressBar(
                     percent: self.metric.percent,
                     tint: self.progressColor,
+                    gradientColors: self.progressGradientColors,
                     accessibilityLabel: self.metric.percentStyle.accessibilityLabel,
                     pacePercent: self.metric.pacePercent,
                     paceOnTop: self.metric.paceOnTop,
@@ -482,7 +486,8 @@ struct UsageMenuCardUsageSectionView: View {
                     MetricRow(
                         metric: metric,
                         title: UsageMenuCardView.popupMetricTitle(provider: self.model.provider, metric: metric),
-                        progressColor: self.model.progressColor)
+                        progressColor: self.model.progressColor,
+                        progressGradientColors: self.model.progressGradientColors)
                 }
                 if !self.model.usageNotes.isEmpty {
                     UsageNotesContent(notes: self.model.usageNotes)
@@ -514,7 +519,8 @@ struct UsageMenuCardCreditsSectionView: View {
                     creditsRemaining: self.model.creditsRemaining,
                     hintText: self.model.creditsHintText,
                     hintCopyText: self.model.creditsHintCopyText,
-                    progressColor: self.model.progressColor)
+                    progressColor: self.model.progressColor,
+                    progressGradientColors: self.model.progressGradientColors)
                 if self.showBottomDivider {
                     Divider()
                 }
@@ -535,6 +541,7 @@ private struct CreditsBarContent: View {
     let hintText: String?
     let hintCopyText: String?
     let progressColor: Color
+    let progressGradientColors: [Color]
     @Environment(\.menuItemHighlighted) private var isHighlighted
 
     private var percentLeft: Double? {
@@ -557,6 +564,7 @@ private struct CreditsBarContent: View {
                 UsageProgressBar(
                     percent: percentLeft,
                     tint: self.progressColor,
+                    gradientColors: self.progressGradientColors,
                     accessibilityLabel: "Credits remaining")
                 HStack(alignment: .firstTextBaseline) {
                     Text(self.creditsText)
@@ -645,7 +653,8 @@ struct UsageMenuCardExtraUsageSectionView: View {
             if let providerCost = self.model.providerCost {
                 ProviderCostContent(
                     section: providerCost,
-                    progressColor: self.model.progressColor)
+                    progressColor: self.model.progressColor,
+                    progressGradientColors: self.model.progressGradientColors)
                     .padding(.horizontal, 16)
                     .padding(.top, self.topPadding)
                     .padding(.bottom, self.bottomPadding)
@@ -764,10 +773,15 @@ extension UsageMenuCardView.Model {
             enabled: input.tokenCostUsageEnabled,
             snapshot: input.tokenSnapshot,
             error: input.tokenError)
+        let costFallbackSubtitle = Self.costFallbackSubtitle(
+            input: input,
+            providerCost: providerCost,
+            tokenUsage: tokenUsage)
         let subtitle = Self.subtitle(
             snapshot: input.snapshot,
             isRefreshing: input.isRefreshing,
             lastError: input.lastError,
+            costFallbackText: costFallbackSubtitle,
             now: input.now)
         let redacted = Self.redactedText(input: input, subtitle: subtitle)
         let placeholder = input.snapshot == nil && !input.isRefreshing && input.lastError == nil ? "No usage yet" : nil
@@ -788,7 +802,8 @@ extension UsageMenuCardView.Model {
             providerCost: providerCost,
             tokenUsage: tokenUsage,
             placeholder: placeholder,
-            progressColor: Self.progressColor(for: input.provider))
+            progressColor: Self.progressColor(for: input.provider),
+            progressGradientColors: Self.progressGradientColors(for: input.provider))
     }
 
     private static func usageNotes(input: Input) -> [String] {
@@ -907,27 +922,6 @@ extension UsageMenuCardView.Model {
     private static func isKiloActivitySegment(_ text: String) -> Bool {
         let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return normalized.hasPrefix("auto top-up:")
-    }
-
-    private static func subtitle(
-        snapshot: UsageSnapshot?,
-        isRefreshing: Bool,
-        lastError: String?,
-        now: Date) -> (text: String, style: SubtitleStyle)
-    {
-        if let lastError, !lastError.isEmpty {
-            return (lastError.trimmingCharacters(in: .whitespacesAndNewlines), .error)
-        }
-
-        if isRefreshing, snapshot == nil {
-            return ("Refreshing...", .loading)
-        }
-
-        if let updated = snapshot?.updatedAt {
-            return (UsageFormatter.updatedString(from: updated, now: now), .info)
-        }
-
-        return ("Not fetched yet", .info)
     }
 
     private struct RedactedText {

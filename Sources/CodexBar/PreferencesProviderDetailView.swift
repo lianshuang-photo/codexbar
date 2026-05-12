@@ -376,6 +376,7 @@ struct ProviderMetricsInlineView: View {
                         metric: metric,
                         title: ProviderDetailView<EmptyView>.metricTitle(provider: self.provider, metric: metric),
                         progressColor: self.model.progressColor,
+                        progressGradientColors: self.model.progressGradientColors,
                         labelWidth: self.labelWidth)
                 }
 
@@ -397,6 +398,7 @@ struct ProviderMetricsInlineView: View {
                     ProviderMetricInlineCostRow(
                         section: providerCost,
                         progressColor: self.model.progressColor,
+                        progressGradientColors: self.model.progressGradientColors,
                         labelWidth: self.labelWidth)
                 }
 
@@ -426,6 +428,7 @@ private struct ProviderMetricInlineRow: View {
     let metric: UsageMenuCardView.Model.Metric
     let title: String
     let progressColor: Color
+    let progressGradientColors: [Color]
     let labelWidth: CGFloat
 
     var body: some View {
@@ -439,6 +442,7 @@ private struct ProviderMetricInlineRow: View {
                 UsageProgressBar(
                     percent: self.metric.percent,
                     tint: self.progressColor,
+                    gradientColors: self.progressGradientColors,
                     accessibilityLabel: self.metric.percentStyle.accessibilityLabel,
                     pacePercent: self.metric.pacePercent,
                     paceOnTop: self.metric.paceOnTop,
@@ -543,6 +547,7 @@ private struct ProviderMetricInlineTextRow: View {
 private struct ProviderMetricInlineCostRow: View {
     let section: UsageMenuCardView.Model.ProviderCostSection
     let progressColor: Color
+    let progressGradientColors: [Color]
     let labelWidth: CGFloat
 
     var body: some View {
@@ -556,6 +561,7 @@ private struct ProviderMetricInlineCostRow: View {
                     UsageProgressBar(
                         percent: percentUsed,
                         tint: self.progressColor,
+                        gradientColors: self.progressGradientColors,
                         accessibilityLabel: "Usage used")
                         .frame(minWidth: ProviderSettingsMetrics.metricBarWidth, maxWidth: .infinity)
                 }
